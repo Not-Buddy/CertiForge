@@ -1,53 +1,71 @@
-use lopdf::{Document, Dictionary, Object, content::{Content, Operation}};
-use std::error::Error;
+// src/main.rs
+use anyhow::Result;
+use std::io::{self, Write};
 
-fn main() -> Result<(), Box<dyn Error>> {
-    // Read user input
+// Declare modules
+mod analysis;
+mod editpng;
+
+// Import functions
+use analysis::{analyze_png_file, print_analysis};
+use editpng::add_text_to_png;
+
+fn get_user_input(prompt: &str) -> String {
+    print!("{}", prompt);
+    io::stdout().flush().unwrap();
+    
     let mut input = String::new();
-    println!("Enter text to add to PDF:");
-    std::io::stdin().read_line(&mut input)?;
-    let text = input.trim();  // Fixes Error 1
+    io::stdin().read_line(&mut input).unwrap();
+    input.trim().to_string()
+}
 
-    // Load PDF
-    let mut doc = Document::load("TemplateC/ExampleCertificate.pdf")?;
-
-    // Get first page (Fixes Error 2)
-    let (&page_id, _) = doc.get_pages()
-        .iter()
-        .next()
-        .ok_or("PDF has no pages")?;
-
-    // Create content operations
-    let content = Content {
-        operations: vec![
-            Operation::new("BT", vec![]),
-            Operation::new("Tf", vec!["F1".into(), 36.into()]),
-            Operation::new("Td", vec![100.into(), 400.into()]),
-            Operation::new("Tj", vec![Object::string_literal(text)]),
-            Operation::new("ET", vec![]),
-        ],
-    };
-
-    // Modify page content (Fixes Error 3)
-    if let Ok(mut existing_content) = doc.get_and_decode_page_content(page_id) {
-        existing_content.operations.extend(content.operations);
-        doc.change_page_content(page_id, existing_content.encode()?)?;
+fn main() -> Result<()> {
+    let input_file = "Template/Example.png";
+    let output_file = "Template/Example_with_text.png";
+    
+    // Analyze original image
+    println!("=== Original Image Analysis ===");
+    if let Ok(analysis) = analyze_png_file(input_file) {
+        print_analysis(&analysis);
     }
 
-    // Add font resource (Fixes Error 4)
-    if let Ok((resources, _)) = doc.get_page_resources(page_id) {
-        let mut new_resources = resources.clone().unwrap_or_default();
-        new_resources.set("Font", Dictionary::from_iter(vec![
-            ("F1", Dictionary::from_iter(vec![
-                ("Type", "Font".into()),
-                ("Subtype", "Type1".into()),
-                ("BaseFont", "Helvetica-Bold".into()),
-            ]).into())
-        ]));
-        doc.set_page_resources(page_id, new_resources)?;
+    println!("\n{}", "=".repeat(50));
+    
+    // Get user inputs
+    let text = get_user_input("Enter text to add: ");
+    if text.is_empty() {
+        println!("No text entered. Exiting...");
+        return Ok(());
     }
 
-    doc.save("output.pdf")?;
+    let x_input = get_user_input("Enter X position (or press Enter for default 50): ");
+    let x_pos = if x_input.is_empty() { 50 } else { x_input.parse().unwrap_or(50) };
+    
+    let y_input = get_user_input("Enter Y position (or press Enter for default 50): ");
+    let y_pos = if y_input.is_empty() { 50 } else { y_input.parse().unwrap_or(50) };
+
+    // Add text with custom options
+    match editpng::add_text_with_custom_options(
+        input_file,
+        output_file,
+        &text,
+        x_pos,
+        y_pos,
+        40.0,                           // font size
+        (255, 255, 255, 255),          // white color RGBA
+    ) {
+        Ok(()) => {
+            println!("✅ Text successfully added!");
+            
+            // Analyze modified image
+            println!("\n=== Modified Image Analysis ===");
+            if let Ok(analysis) = analyze_png_file(output_file) {
+                print_analysis(&analysis);
+            }
+        }
+        Err(e) => eprintln!("❌ Error: {}", e),
+    }
+
     Ok(())
 }
 
