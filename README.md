@@ -26,7 +26,10 @@ A Rust-based certificate generation tool that creates personalized certificates 
 
 1. **Clone or create the project**:
 ```
-git clone 
+git clone
+
+
+
 cd CertificateMaker
 ```
 
