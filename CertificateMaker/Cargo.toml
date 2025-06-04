@@ -1,0 +1,7 @@
+[package]
+name = "CertificateMaker"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+lopdf = "0.36.0"
