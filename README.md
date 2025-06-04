@@ -68,6 +68,7 @@ CertificateMaker/
 ├── output/                 # Single image outputs (auto-created)
 ├── Cargo.toml
 └── README.md
+
 ```
 
 ## 🎯 Usage
