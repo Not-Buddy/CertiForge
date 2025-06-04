@@ -113,8 +113,7 @@ pub fn select_font() -> Result<String> {
 // Function to get color from user
 pub fn get_color_from_user() -> Result<Rgba<u8>> {
     println!("\n🎨 Color Options:");
-    println!("  • Enter hex color (e.g., #FF0000 for red, #00FF00 for green)");
-    println!("  • Or use common colors: white, black, red, green, blue, yellow");
+    println!("  • Enter hex color code only (e.g., #FF0000 for red, #00FF00 for green)");
     
     loop {
         let input = get_user_input("Enter color: ");

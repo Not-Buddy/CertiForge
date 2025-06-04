@@ -11,7 +11,7 @@ mod csvexcelparser;
 // Import functions
 use analysis::{analyze_png_file, print_analysis};
 use editpng::add_text_to_png_interactive;
-use csvexcelparser::{generate_certificates_interactive, create_sample_csv, select_csv_file, debug_csv_file};
+use csvexcelparser::{generate_certificates_interactive, create_sample_csv, select_csv_file, debug_csv_file, select_template_file, debug_template_file};
 
 fn get_user_input(prompt: &str) -> String {
     print!("{}", prompt);
@@ -22,72 +22,156 @@ fn get_user_input(prompt: &str) -> String {
     input.trim().to_string()
 }
 
-// Helper function for better path handling
-fn get_file_path(prompt: &str, must_exist: bool) -> String {
-    loop {
-        let input = get_user_input(prompt);
-        
-        if input.is_empty() {
-            println!("❌ Please enter a file path.");
-            continue;
-        }
-        
-        // Convert to raw string-like format for Windows paths
-        let path_str = if input.contains('\\') && !input.starts_with("r\"") {
-            println!("💡 Tip: For Windows paths, use raw strings like r\"{}\"", input);
-            input
-        } else {
-            input
-        };
-        
-        let path = Path::new(&path_str);
-        
-        if must_exist {
-            if path.exists() {
-                println!("✅ File found: {}", path.display());
-                return path_str;
-            } else {
-                println!("❌ File not found: {}", path.display());
-                
-                // Show current directory and nearby files
-                if let Ok(current_dir) = std::env::current_dir() {
-                    println!("📁 Current working directory: {}", current_dir.display());
-                }
-                
-                if let Some(parent) = path.parent() {
-                    if parent.exists() {
-                        println!("📁 Directory exists, but file not found. Files in directory:");
-                        if let Ok(entries) = std::fs::read_dir(parent) {
-                            for entry in entries.take(10) { // Show max 10 files
-                                if let Ok(entry) = entry {
-                                    println!("  - {}", entry.file_name().to_string_lossy());
-                                }
-                            }
-                        }
-                    } else {
-                        println!("📁 Directory doesn't exist: {}", parent.display());
+// Function to list image files in current directory
+fn list_image_files() -> Result<Vec<String>, String> {
+    let mut image_files = Vec::new();
+    
+    let current_dir = std::env::current_dir()
+        .map_err(|_| "Failed to get current directory".to_string())?;
+    
+    let entries = std::fs::read_dir(&current_dir)
+        .map_err(|_| "Failed to read current directory".to_string())?;
+    
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            if let Some(extension) = path.extension() {
+                let ext = extension.to_string_lossy().to_lowercase();
+                if ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "gif" {
+                    if let Some(filename) = path.file_name() {
+                        image_files.push(filename.to_string_lossy().to_string());
                     }
                 }
-                
-                let retry = get_user_input("Try again? (y/n): ");
-                if retry.to_lowercase() != "y" {
-                    return String::new(); // Return empty string to cancel
+            }
+        }
+    }
+    
+    if image_files.is_empty() {
+        return Err("No image files found in current directory".to_string());
+    }
+    
+    image_files.sort();
+    Ok(image_files)
+}
+
+// Function to list image files in a specific directory
+fn list_image_files_in_dir(dir_path: &str) -> Result<Vec<String>, String> {
+    let mut image_files = Vec::new();
+    
+    if !Path::new(dir_path).exists() {
+        return Err(format!("Directory '{}' not found", dir_path));
+    }
+    
+    let entries = std::fs::read_dir(dir_path)
+        .map_err(|_| format!("Failed to read directory '{}'", dir_path))?;
+    
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            if let Some(extension) = path.extension() {
+                let ext = extension.to_string_lossy().to_lowercase();
+                if ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "gif" {
+                    if let Some(filename) = path.file_name() {
+                        image_files.push(filename.to_string_lossy().to_string());
+                    }
                 }
             }
-        } else {
-            // For output files, just return the path
-            return path_str;
+        }
+    }
+    
+    if image_files.is_empty() {
+        return Err(format!("No image files found in directory '{}'", dir_path));
+    }
+    
+    image_files.sort();
+    Ok(image_files)
+}
+
+// Function to select input image file
+fn select_input_image() -> Result<String, String> {
+    let base_path = "Template".to_string();
+    let image_files = match list_image_files_in_dir(&base_path) {
+        Ok(files) => files,
+        Err(e) => return Err(e),
+    };
+    
+    println!("\n🖼️ Available Image Files in 'Template' directory:");
+    for (i, file) in image_files.iter().enumerate() {
+        println!("  {}. {}", i + 1, file);
+    }
+    
+    loop {
+        let input = get_user_input("\nSelect image file (enter number or filename): ");
+        
+        // Try to parse as number first
+        if let Ok(num) = input.parse::<usize>() {
+            if num > 0 && num <= image_files.len() {
+                let selected_file = &image_files[num - 1];
+                let full_path = format!("{}/{}", base_path, selected_file);
+                println!("✅ Selected: {}", selected_file);
+                return Ok(full_path);
+            }
+        }
+        
+        // Try to find by filename (case insensitive)
+        for file in &image_files {
+            if file.to_lowercase() == input.to_lowercase() {
+                let full_path = format!("{}/{}", base_path, file);
+                println!("✅ Selected: {}", file);
+                return Ok(full_path);
+            }
+        }
+        
+        println!("❌ Invalid selection. Please try again.");
+    }
+}
+
+
+// Function to select output file path
+fn select_output_path(default_name: Option<&str>) -> String {
+    println!("\n📁 Output File Options:");
+    println!("1. Save in current directory");
+    println!("2. Save in 'output' directory");
+    println!("3. Custom path");
+    
+    let choice = get_user_input("Select option (1-3): ");
+    
+    let default_filename = default_name.unwrap_or("output.png");
+    
+    match choice.as_str() {
+        "1" => {
+            let filename = get_user_input(&format!("Enter filename (default '{}'): ", default_filename));
+            if filename.is_empty() {
+                default_filename.to_string()
+            } else {
+                filename
+            }
+        }
+        "2" => {
+            // Create output directory if it doesn't exist
+            let _ = std::fs::create_dir_all("output");
+            let filename = get_user_input(&format!("Enter filename (default '{}'): ", default_filename));
+            let filename = if filename.is_empty() { default_filename } else { &filename };
+            format!("output/{}", filename)
+        }
+        "3" => {
+            get_user_input("Enter full output path: ")
+        }
+        _ => {
+            println!("Invalid option, using default");
+            default_filename.to_string()
         }
     }
 }
 
 // Helper function to show path tips
 fn show_path_tips() {
-    println!("\n💡 Path Tips:");
-    println!("  • Windows: Use raw strings like r\"C:\\path\\to\\file.csv\"");
-    println!("  • Or use forward slashes: \"C:/path/to/file.csv\"");
-    println!("  • Relative paths: \"folder/file.csv\" (from project directory)");
-    println!("  • Current directory files: just \"filename.csv\"");
+    println!("\n💡 File Organization Tips:");
+    println!("  • Put input images in current directory or Template/ folder");
+    println!("  • Output files will be saved in current directory or output/ folder");
+    println!("  • CSV files should be in excelcsvs/ directory");
+    println!("  • Template files should be in Template/ directory");
+    println!("  • Font files should be in assets/ directory");
 }
 
 fn show_menu() {
@@ -97,8 +181,9 @@ fn show_menu() {
     println!("3. Analyze PNG file");
     println!("4. Create sample CSV file");
     println!("5. Debug CSV file");
-    println!("6. Show path tips");
-    println!("7. Exit");
+    println!("6. Debug template file");
+    println!("7. Show file organization tips");
+    println!("8. Exit");
 }
 
 fn main() -> Result<()> {
@@ -109,24 +194,35 @@ fn main() -> Result<()> {
     
     loop {
         show_menu();
-        let choice = get_user_input("\nSelect an option (1-7): "); // Fixed: Now shows 1-7
+        let choice = get_user_input("\nSelect an option (1-8): ");
         
         match choice.as_str() {
             "1" => {
-                // Single image text addition
+                // Single image text addition - UPDATED with menu selection
                 println!("\n📝 Single Image Text Addition");
                 
-                let input_file = get_file_path("Enter input PNG file path: ", true);
-                if input_file.is_empty() {
-                    println!("❌ Operation cancelled.");
+                let input_file = match select_input_image() {
+                    Ok(file) => file,
+                    Err(e) => {
+                        println!("❌ {}", e);
+                        continue;
+                    }
+                };
+                
+                // Verify the input file exists
+                if !Path::new(&input_file).exists() {
+                    println!("❌ Selected file not found: {}", input_file);
                     continue;
                 }
                 
-                let output_file = get_file_path("Enter output PNG file path: ", false);
-                if output_file.is_empty() {
-                    println!("❌ Operation cancelled.");
-                    continue;
-                }
+                // Generate default output name based on input
+                let input_stem = Path::new(&input_file)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("output");
+                let default_output = format!("{}_with_text.png", input_stem);
+                
+                let output_file = select_output_path(Some(&default_output));
                 
                 let text = get_user_input("Enter text to add: ");
                 if text.is_empty() {
@@ -141,7 +237,10 @@ fn main() -> Result<()> {
                 let y_pos = if y_input.is_empty() { 50 } else { y_input.parse().unwrap_or(50) };
                 
                 match add_text_to_png_interactive(&input_file, &output_file, &text, x_pos, y_pos) {
-                    Ok(()) => println!("✅ Text added successfully!"),
+                    Ok(()) => {
+                        println!("✅ Text added successfully!");
+                        println!("📁 Output saved to: {}", output_file);
+                    }
                     Err(e) => {
                         println!("❌ Error: {}", e);
                         show_path_tips();
@@ -162,12 +261,19 @@ fn main() -> Result<()> {
             }
             
             "3" => {
-                // Analyze PNG file
+                // Analyze PNG file - UPDATED with menu selection
                 println!("\n📊 PNG File Analysis");
                 
-                let file_path = get_file_path("Enter PNG file path to analyze: ", true);
-                if file_path.is_empty() {
-                    println!("❌ Operation cancelled.");
+                let file_path = match select_input_image() {
+                    Ok(file) => file,
+                    Err(e) => {
+                        println!("❌ {}", e);
+                        continue;
+                    }
+                };
+                
+                if !Path::new(&file_path).exists() {
+                    println!("❌ Selected file not found: {}", file_path);
                     continue;
                 }
                 
@@ -184,8 +290,8 @@ fn main() -> Result<()> {
                 // Create sample CSV
                 println!("\n📄 Create Sample CSV");
                 
-                let filename = get_user_input("Enter filename for sample CSV (default 'sample_names.csv'): ");
-                let filename = if filename.is_empty() { "sample_names.csv" } else { &filename };
+                let filename = get_user_input("Enter filename for sample CSV (default 'excelcsvs/sample_names.csv'): ");
+                let filename = if filename.is_empty() { "excelcsvs/sample_names.csv" } else { &filename };
                 
                 match create_sample_csv(filename) {
                     Ok(()) => {
@@ -210,25 +316,43 @@ fn main() -> Result<()> {
                     }
                 };
                 
-                match debug_csv_file(&csv_file) { // Fixed: Removed csvexcelparser:: prefix
+                match debug_csv_file(&csv_file) {
                     Ok(()) => println!("✅ CSV debug complete"),
                     Err(e) => println!("❌ Debug error: {}", e),
                 }
             }
             
             "6" => {
-                // Show path tips
-                show_path_tips();
+                // Debug template file
+                println!("\n🔍 Template File Debugger");
+                
+                let template_file = match select_template_file() {
+                    Ok(file) => file,
+                    Err(e) => {
+                        println!("❌ {}", e);
+                        continue;
+                    }
+                };
+                
+                match debug_template_file(&template_file) {
+                    Ok(()) => println!("✅ Template debug complete"),
+                    Err(e) => println!("❌ Debug error: {}", e),
+                }
             }
             
             "7" => {
+                // Show file organization tips
+                show_path_tips();
+            }
+            
+            "8" => {
                 // Exit
                 println!("👋 Goodbye!");
                 break;
             }
             
             _ => {
-                println!("❌ Invalid option. Please select 1-7."); // Fixed: Now shows 1-7
+                println!("❌ Invalid option. Please select 1-8.");
             }
         }
         
@@ -238,4 +362,3 @@ fn main() -> Result<()> {
     
     Ok(())
 }
-    

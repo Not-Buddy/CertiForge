@@ -218,7 +218,7 @@ pub fn select_csv_file() -> Result<String> {
     }
 }
 
-// NEW: Function to list PNG files in Template directory
+// Function to list PNG files in Template directory
 fn list_template_files() -> Result<Vec<String>> {
     let template_dir = "Template";
     let mut template_files = Vec::new();
@@ -251,7 +251,7 @@ fn list_template_files() -> Result<Vec<String>> {
     Ok(template_files)
 }
 
-// NEW: Function to select template file interactively
+// Function to select template file interactively
 pub fn select_template_file() -> Result<String> {
     println!("\n🖼️ Available Template Files in 'Template' directory:");
     let template_files = list_template_files()?;
@@ -286,7 +286,7 @@ pub fn select_template_file() -> Result<String> {
     }
 }
 
-// NEW: Function to debug template file
+// Function to debug template file
 pub fn debug_template_file(file_path: &str) -> Result<()> {
     println!("\n🔍 === Template File Debug Info ===");
     
@@ -311,6 +311,111 @@ pub fn debug_template_file(file_path: &str) -> Result<()> {
         }
         Err(e) => {
             println!("❌ Failed to analyze template: {}", e);
+        }
+    }
+    
+    Ok(())
+}
+
+// Function to list font files in assets directory
+fn list_font_files() -> Result<Vec<String>, String> {
+    let assets_dir = "assets";
+    let mut font_files = Vec::new();
+    
+    if !Path::new(assets_dir).exists() {
+        return Err("Directory 'assets' not found. Please create it and add font files.".to_string());
+    }
+    
+    let entries = std::fs::read_dir(assets_dir)
+        .map_err(|_| "Failed to read assets directory".to_string())?;
+    
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            if let Some(extension) = path.extension() {
+                let ext = extension.to_string_lossy().to_lowercase();
+                if ext == "ttf" || ext == "otf" || ext == "woff" || ext == "woff2" {
+                    if let Some(filename) = path.file_name() {
+                        font_files.push(filename.to_string_lossy().to_string());
+                    }
+                }
+            }
+        }
+    }
+    
+    if font_files.is_empty() {
+        return Err("No font files found in 'assets' directory. Please add .ttf, .otf, .woff, or .woff2 files.".to_string());
+    }
+    
+    font_files.sort();
+    Ok(font_files)
+}
+
+// Function to select font file interactively
+pub fn select_font_file() -> Result<String, String> {
+    println!("\n🔤 Available Font Files in 'assets' directory:");
+    let font_files = list_font_files()?;
+    
+    for (i, file) in font_files.iter().enumerate() {
+        println!("  {}. {}", i + 1, file);
+    }
+    
+    loop {
+        let input = get_user_input("\nSelect font file (enter number or filename): ");
+        
+        // Try to parse as number first
+        if let Ok(num) = input.parse::<usize>() {
+            if num > 0 && num <= font_files.len() {
+                let selected_file = &font_files[num - 1];
+                println!("✅ Selected font: {}", selected_file);
+                return Ok(selected_file.clone());
+            }
+        }
+        
+        // Try to find by filename (case insensitive)
+        for file in &font_files {
+            if file.to_lowercase() == input.to_lowercase() {
+                println!("✅ Selected font: {}", file);
+                return Ok(file.clone());
+            }
+        }
+        
+        println!("❌ Invalid selection. Please try again.");
+    }
+}
+
+// Function to debug font files
+pub fn debug_font_files() -> Result<()> {
+    println!("\n🔍 === Font Files Debug Info ===");
+    
+    let assets_dir = "assets";
+    
+    if !Path::new(assets_dir).exists() {
+        println!("❌ Directory 'assets' not found");
+        return Ok(());
+    }
+    
+    match list_font_files() {
+        Ok(font_files) => {
+            println!("✅ Found {} font files:", font_files.len());
+            for (i, font) in font_files.iter().enumerate() {
+                let full_path = format!("assets/{}", font);
+                if let Ok(metadata) = std::fs::metadata(&full_path) {
+                    println!("  {}. {} ({:.2} KB)", 
+                            i + 1, 
+                            font, 
+                            metadata.len() as f64 / 1024.0);
+                } else {
+                    println!("  {}. {} (size unknown)", i + 1, font);
+                }
+            }
+        }
+        Err(e) => {
+            println!("❌ {}", e);
+            println!("\n💡 Tips:");
+            println!("  • Create an 'assets' directory in your project root");
+            println!("  • Add font files (.ttf, .otf, .woff, .woff2)");
+            println!("  • You can download fonts from Google Fonts or other sources");
         }
     }
     
@@ -363,7 +468,7 @@ pub fn generate_certificates_batch(
     Ok(())
 }
 
-// UPDATED: Interactive certificate generation with template selection
+// Interactive certificate generation with template and font selection
 pub fn generate_certificates_interactive() -> Result<()> {
     println!("🎓 === Certificate Generator (CSV Files Only) ===");
     
@@ -392,7 +497,7 @@ pub fn generate_certificates_interactive() -> Result<()> {
         println!("  {}. {}", i + 1, name);
     }
     
-    // UPDATED: Automatically look in Template directory and let user select
+    // Automatically look in Template directory and let user select
     let template_file = match select_template_file() {
         Ok(file) => file,
         Err(e) => {
@@ -427,12 +532,29 @@ pub fn generate_certificates_interactive() -> Result<()> {
     let x_pos = if x_input.is_empty() { default_x } else { x_input.parse().unwrap_or(default_x) };
     let y_pos = if y_input.is_empty() { default_y } else { y_input.parse().unwrap_or(default_y) };
     
-    // Get font settings
-    let font_input = get_user_input("\nEnter font filename (e.g., DejaVuSans.ttf): ");
+    // Font selection from assets directory
+    let font_input = match select_font_file() {
+        Ok(font) => font,
+        Err(e) => {
+            println!("❌ {}", e);
+            println!("\n💡 Tips:");
+            println!("  • Create an 'assets' directory in your project root");
+            println!("  • Add font files (.ttf, .otf, .woff, .woff2)");
+            println!("  • You can download fonts from Google Fonts");
+            
+            // Fallback to manual input
+            let manual_font = get_user_input("\nOr enter font filename manually (e.g., DejaVuSans.ttf): ");
+            if manual_font.is_empty() {
+                return Err(anyhow::anyhow!("No font selected"));
+            }
+            manual_font
+        }
+    };
+    
     let font_size_input = get_user_input("Enter font size (default 40): ");
     let font_size = if font_size_input.is_empty() { 40.0 } else { font_size_input.parse().unwrap_or(40.0) };
     
-    let color_input = get_user_input("Enter text color (hex like #000000 or color name like 'black'): ");
+    let color_input = get_user_input("Enter text color (only hex like #000000 : ");
     let hex_color = if color_input.is_empty() { "#000000".to_string() } else { color_input };
     
     // Get output directory
