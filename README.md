@@ -52,21 +52,37 @@ cargo run
 
 ```
 CertificateMaker/
+
 ├── src/
+
 │   ├── main.rs              # Main application with menu system
+
 │   ├── analysis.rs          # PNG file analysis functionality
+
 │   ├── editpng.rs          # Image editing and text overlay
+
 │   └── csvexcelparser.rs   # CSV parsing and certificate generation
+
 ├── excelcsvs/              # CSV files with names
+
 │   └── Names.csv
+
 ├── Template/               # PNG template files
+
 │   └── certificate.png
+
 ├── assets/                 # Font files
+
 │   ├── Arial.ttf
+
 │   └── DejaVuSans.ttf
+
 ├── certificates/           # Generated certificates (auto-created)
+
 ├── output/                 # Single image outputs (auto-created)
+
 ├── Cargo.toml
+
 └── README.md
 
 ```
