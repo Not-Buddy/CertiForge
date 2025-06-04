@@ -8,7 +8,7 @@ mod editpng;
 
 // Import functions
 use analysis::{analyze_png_file, print_analysis};
-use editpng::add_text_to_png;
+use editpng::add_text_to_png_interactive; // Changed from add_text_to_png
 
 fn get_user_input(prompt: &str) -> String {
     print!("{}", prompt);
@@ -38,21 +38,22 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let x_input = get_user_input("Enter X position (or press Enter for default 50): ");
+    let x_input = get_user_input("Enter X position Width starts from top left (or press Enter for default 50):  ");
     let x_pos = if x_input.is_empty() { 50 } else { x_input.parse().unwrap_or(50) };
     
-    let y_input = get_user_input("Enter Y position (or press Enter for default 50): ");
+    let y_input = get_user_input("Enter Y position Height starts from top left(or press Enter for default 50): ");
     let y_pos = if y_input.is_empty() { 50 } else { y_input.parse().unwrap_or(50) };
 
-    // Add text with custom options
-    match editpng::add_text_with_custom_options(
+    println!("\n📝 Now you'll select font, font size, and color interactively...");
+
+    // Add text with interactive font and color selection
+    match add_text_to_png_interactive( // Changed function call
         input_file,
         output_file,
         &text,
         x_pos,
         y_pos,
-        40.0,                           // font size
-        (255, 255, 255, 255),          // white color RGBA
+        // Removed hardcoded font size and color - now handled interactively
     ) {
         Ok(()) => {
             println!("✅ Text successfully added!");
@@ -68,4 +69,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-

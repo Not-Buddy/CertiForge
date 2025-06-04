@@ -82,6 +82,34 @@ pub fn print_analysis(analysis: &PngAnalysis) {
     println!("Total pixels: {}", analysis.pixel_count);
     println!("Aspect ratio: {:.3}", analysis.width as f64 / analysis.height as f64);
     
+    // Separate coordinates section with useful positioning information
+    println!("\n--- Useful Coordinates ---");
+    let middle_x = analysis.width / 2;
+    let middle_y = analysis.height / 2;
+    let quarter_x = analysis.width / 4;
+    let quarter_y = analysis.height / 4;
+    let three_quarter_x = (analysis.width * 3) / 4;
+    let three_quarter_y = (analysis.height * 3) / 4;
+    
+    println!("🎯 Center point: ({}, {})", middle_x, middle_y);
+    println!("📍 Corner coordinates:");
+    println!("  • Top-left: (0, 0)");
+    println!("  • Top-right: ({}, 0)", analysis.width - 1);
+    println!("  • Bottom-left: (0, {})", analysis.height - 1);
+    println!("  • Bottom-right: ({}, {})", analysis.width - 1, analysis.height - 1);
+    
+    println!("📐 Edge midpoints:");
+    println!("  • Top edge center: ({}, 0)", middle_x);
+    println!("  • Bottom edge center: ({}, {})", middle_x, analysis.height - 1);
+    println!("  • Left edge center: (0, {})", middle_y);
+    println!("  • Right edge center: ({}, {})", analysis.width - 1, middle_y);
+    
+    println!("🔳 Quarter positions:");
+    println!("  • Top-left quarter: ({}, {})", quarter_x, quarter_y);
+    println!("  • Top-right quarter: ({}, {})", three_quarter_x, quarter_y);
+    println!("  • Bottom-left quarter: ({}, {})", quarter_x, three_quarter_y);
+    println!("  • Bottom-right quarter: ({}, {})", three_quarter_x, three_quarter_y);
+
     println!("\n--- Color Information ---");
     println!("Color type: {:?}", analysis.color_type);
     println!("Bit depth: {:?}", analysis.bit_depth);
