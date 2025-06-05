@@ -2,7 +2,7 @@
 use anyhow::{Context, Result};
 use image::{Rgba, open, ImageFormat};
 use imageproc::drawing::draw_text_mut;
-use rusttype::{Font, Scale};
+use rusttype::{Font, Scale, point};
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
@@ -144,6 +144,33 @@ pub fn get_color_from_user() -> Result<Rgba<u8>> {
     }
 }
 
+// Helper function to calculate text size
+fn calculate_text_size(font: &Font, scale: Scale, text: &str) -> (i32, i32) {
+    let v_metrics = font.v_metrics(scale);
+    let glyphs: Vec<_> = font.layout(text, scale, point(0.0, 0.0 + v_metrics.ascent)).collect();
+
+    if glyphs.is_empty() {
+        return (0, 0);
+    }
+
+    let min_x = glyphs
+        .iter()
+        .filter_map(|g| g.pixel_bounding_box().map(|b| b.min.x))
+        .min()
+        .unwrap_or(0);
+    
+    let max_x = glyphs
+        .iter()
+        .filter_map(|g| g.pixel_bounding_box().map(|b| b.max.x))
+        .max()
+        .unwrap_or(0);
+
+    let width = max_x - min_x;
+    let height = (v_metrics.ascent - v_metrics.descent).ceil() as i32;
+
+    (width, height)
+}
+
 pub fn add_text_to_png_interactive(
     input_path: &str,
     output_path: &str,
@@ -173,12 +200,26 @@ pub fn add_text_to_png_interactive(
     let color = get_color_from_user()?;
 
     let scale = Scale::uniform(font_size);
-    draw_text_mut(&mut img, color, x, y, scale, &font, text);
+
+    // Calculate text size for centering
+    let (text_width, text_height) = calculate_text_size(&font, scale, text);
+    
+    // Calculate centered position
+    let centered_x = x - text_width / 2;
+    let centered_y = y - text_height / 2;
+    
+    println!("🎯 Centering text '{}' around ({}, {})", text, x, y);
+    println!("📐 Text dimensions: {}x{} pixels", text_width, text_height);
+    println!("📍 Drawing at adjusted position: ({}, {})", centered_x, centered_y);
+
+    // Draw text at centered position
+    draw_text_mut(&mut img, color, centered_x, centered_y, scale, &font, text);
 
     img.save_with_format(output_path, ImageFormat::Png)
         .with_context(|| format!("Failed to save image: {}", output_path))?;
 
     println!("✅ Text added successfully with font '{}' and size {}!", font_filename, font_size);
+    println!("🎯 Text centered around coordinates ({}, {})", x, y);
     println!("📁 Saved to: {}", output_path);
     Ok(())
 }
