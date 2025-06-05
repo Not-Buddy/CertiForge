@@ -22,38 +22,6 @@ fn get_user_input(prompt: &str) -> String {
     input.trim().to_string()
 }
 
-// Function to list image files in current directory
-fn list_image_files() -> Result<Vec<String>, String> {
-    let mut image_files = Vec::new();
-    
-    let current_dir = std::env::current_dir()
-        .map_err(|_| "Failed to get current directory".to_string())?;
-    
-    let entries = std::fs::read_dir(&current_dir)
-        .map_err(|_| "Failed to read current directory".to_string())?;
-    
-    for entry in entries {
-        if let Ok(entry) = entry {
-            let path = entry.path();
-            if let Some(extension) = path.extension() {
-                let ext = extension.to_string_lossy().to_lowercase();
-                if ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "gif" {
-                    if let Some(filename) = path.file_name() {
-                        image_files.push(filename.to_string_lossy().to_string());
-                    }
-                }
-            }
-        }
-    }
-    
-    if image_files.is_empty() {
-        return Err("No image files found in current directory".to_string());
-    }
-    
-    image_files.sort();
-    Ok(image_files)
-}
-
 // Function to list image files in a specific directory
 fn list_image_files_in_dir(dir_path: &str) -> Result<Vec<String>, String> {
     let mut image_files = Vec::new();

@@ -215,14 +215,3 @@ pub fn add_text_with_custom_options(
     println!("📁 Saved to: {}", output_path);
     Ok(())
 }
-
-// Legacy function for backward compatibility
-pub fn add_text_to_png(
-    input_path: &str,
-    output_path: &str,
-    text: &str,
-    x: i32,
-    y: i32,
-) -> Result<()> {
-    add_text_to_png_interactive(input_path, output_path, text, x, y)
-}

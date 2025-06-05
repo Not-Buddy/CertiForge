@@ -1,7 +1,6 @@
 // src/csvexcelparser.rs
 use anyhow::{Context, Result};
 use csv::ReaderBuilder;
-use serde::Deserialize;
 use std::fs::File;
 use std::path::Path;
 use std::io::{self, Write};
@@ -10,13 +9,6 @@ use std::sync::Arc;
 use rayon::prelude::*;
 use crate::editpng::add_text_with_custom_options;
 use crate::analysis::analyze_png_file;
-
-
-#[derive(Debug, Deserialize)]
-struct NameRecord {
-    #[serde(alias = "Name", alias = "name", alias = "NAME")]
-    name: String,
-}
 
 // Function to get user input
 fn get_user_input(prompt: &str) -> String {
@@ -386,90 +378,6 @@ pub fn select_font_file() -> Result<String, String> {
         
         println!("❌ Invalid selection. Please try again.");
     }
-}
-
-// Function to debug font files
-pub fn debug_font_files() -> Result<()> {
-    println!("\n🔍 === Font Files Debug Info ===");
-    
-    let assets_dir = "assets";
-    
-    if !Path::new(assets_dir).exists() {
-        println!("❌ Directory 'assets' not found");
-        return Ok(());
-    }
-    
-    match list_font_files() {
-        Ok(font_files) => {
-            println!("✅ Found {} font files:", font_files.len());
-            for (i, font) in font_files.iter().enumerate() {
-                let full_path = format!("assets/{}", font);
-                if let Ok(metadata) = std::fs::metadata(&full_path) {
-                    println!("  {}. {} ({:.2} KB)", 
-                            i + 1, 
-                            font, 
-                            metadata.len() as f64 / 1024.0);
-                } else {
-                    println!("  {}. {} (size unknown)", i + 1, font);
-                }
-            }
-        }
-        Err(e) => {
-            println!("❌ {}", e);
-            println!("\n💡 Tips:");
-            println!("  • Create an 'assets' directory in your project root");
-            println!("  • Add font files (.ttf, .otf, .woff, .woff2)");
-            println!("  • You can download fonts from Google Fonts or other sources");
-        }
-    }
-    
-    Ok(())
-}
-
-// Generate certificates for all names
-pub fn generate_certificates_batch_sequential(
-    template_path: &str,
-    output_dir: &str,
-    names: &[String],
-    x_pos: i32,
-    y_pos: i32,
-    font_filename: &str,
-    font_size: f32,
-    hex_color: &str,
-) -> Result<()> {
-    // Create output directory if it doesn't exist
-    std::fs::create_dir_all(output_dir)
-        .with_context(|| format!("Failed to create output directory: {}", output_dir))?;
-    
-    println!("\n🎓 Generating {} certificates...", names.len());
-    
-    for (index, name) in names.iter().enumerate() {
-        let output_filename = format!("{}/certificate_{}.png", output_dir, 
-                                    name.replace(" ", "_").replace("/", "_").replace("\\", "_"));
-        
-        match add_text_with_custom_options(
-            template_path,
-            &output_filename,
-            name,
-            x_pos,
-            y_pos,
-            font_filename,
-            font_size,
-            hex_color,
-        ) {
-            Ok(()) => {
-                println!("✅ Generated certificate {}/{}: {}", 
-                        index + 1, names.len(), name);
-            }
-            Err(e) => {
-                println!("❌ Failed to generate certificate for {}: {}", name, e);
-            }
-        }
-    }
-    
-    println!("\n🎉 Certificate generation complete!");
-    println!("📁 Certificates saved in: {}", output_dir);
-    Ok(())
 }
 
 pub fn generate_certificates_batch(
