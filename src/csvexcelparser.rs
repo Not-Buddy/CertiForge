@@ -7,8 +7,11 @@ use std::io::{self, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use rayon::prelude::*;
+use rusttype::{Font, Scale, point};
+
 use crate::editpng::add_text_with_custom_options;
 use crate::analysis::analyze_png_file;
+
 
 // Function to get user input
 fn get_user_input(prompt: &str) -> String {
@@ -380,6 +383,40 @@ pub fn select_font_file() -> Result<String, String> {
     }
 }
 
+// Helper function to calculate text size
+fn calculate_text_size(font: &Font, scale: Scale, text: &str) -> (i32, i32) {
+    let v_metrics = font.v_metrics(scale);
+    let glyphs: Vec<_> = font.layout(text, scale, point(0.0, 0.0 + v_metrics.ascent)).collect();
+
+    if glyphs.is_empty() {
+        return (0, 0);
+    }
+
+    let min_x = glyphs
+        .iter()
+        .filter_map(|g| g.pixel_bounding_box().map(|b| b.min.x))
+        .min()
+        .unwrap_or(0);
+    
+    let max_x = glyphs
+        .iter()
+        .filter_map(|g| g.pixel_bounding_box().map(|b| b.max.x))
+        .max()
+        .unwrap_or(0);
+
+    let width = max_x - min_x;
+    let height = (v_metrics.ascent - v_metrics.descent).ceil() as i32;
+
+    (width, height)
+}
+
+// Helper function to load font data
+fn load_font_data(font_filename: &str) -> Result<Vec<u8>> {
+    let font_path = format!("assets/{}", font_filename);
+    std::fs::read(&font_path)
+        .with_context(|| format!("Failed to read font file: {}", font_path))
+}
+
 pub fn generate_certificates_batch(
     template_path: &str,
     output_dir: &str,
@@ -393,12 +430,19 @@ pub fn generate_certificates_batch(
     std::fs::create_dir_all(output_dir)
         .with_context(|| format!("Failed to create output directory: {}", output_dir))?;
     
+    // Load font once for text size calculations
+    let font_data = load_font_data(font_filename)?;
+    let font = Font::try_from_bytes(&font_data)
+        .ok_or_else(|| anyhow::anyhow!("Failed to load font: {}", font_filename))?;
+    
+    let scale = Scale::uniform(font_size);
     let total = names.len();
     let completed = Arc::new(AtomicUsize::new(0));
     
     println!("\n🎓 Generating {} certificates in parallel using {} cores...", 
              total, 
              rayon::current_num_threads());
+    println!("🎯 Text will be centered around coordinates ({}, {})", x_pos, y_pos);
     
     let results: Vec<Result<(), anyhow::Error>> = names
         .par_iter()
@@ -408,12 +452,19 @@ pub fn generate_certificates_batch(
             let output_filename = format!("{}/certificate_{}.png", output_dir, 
                                         name.replace(" ", "_").replace("/", "_").replace("\\", "_"));
             
+            // Calculate text size for centering
+            let (text_width, text_height) = calculate_text_size(&font, scale, name);
+            
+            // Calculate centered position
+            let centered_x = x_pos - text_width / 2;
+            let centered_y = y_pos - text_height / 2;
+            
             let result = add_text_with_custom_options(
                 template_path,
                 &output_filename,
                 name,
-                x_pos,
-                y_pos,
+                centered_x,  // Use centered coordinates
+                centered_y,  // Use centered coordinates
                 font_filename,
                 font_size,
                 hex_color,
@@ -424,7 +475,8 @@ pub fn generate_certificates_batch(
             
             match result {
                 Ok(()) => {
-                    println!("✅ [{:6.2}%] Generated: {}", progress, name);
+                    println!("✅ [{:6.2}%] Generated: {} (centered at {}, {})", 
+                            progress, name, centered_x, centered_y);
                     Ok(())
                 }
                 Err(e) => {
@@ -441,6 +493,7 @@ pub fn generate_certificates_batch(
     
     println!("\n🎉 Parallel certificate generation complete!");
     println!("⚡ Used {} CPU cores", rayon::current_num_threads());
+    println!("🎯 All text was centered around ({}, {})", x_pos, y_pos);
     println!("✅ Successfully generated: {} certificates", success_count);
     if error_count > 0 {
         println!("❌ Failed to generate: {} certificates", error_count);
