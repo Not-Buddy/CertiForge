@@ -5,8 +5,12 @@ use serde::Deserialize;
 use std::fs::File;
 use std::path::Path;
 use std::io::{self, Write};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use rayon::prelude::*;
 use crate::editpng::add_text_with_custom_options;
 use crate::analysis::analyze_png_file;
+
 
 #[derive(Debug, Deserialize)]
 struct NameRecord {
@@ -423,7 +427,7 @@ pub fn debug_font_files() -> Result<()> {
 }
 
 // Generate certificates for all names
-pub fn generate_certificates_batch(
+pub fn generate_certificates_batch_sequential(
     template_path: &str,
     output_dir: &str,
     names: &[String],
@@ -467,6 +471,77 @@ pub fn generate_certificates_batch(
     println!("📁 Certificates saved in: {}", output_dir);
     Ok(())
 }
+
+pub fn generate_certificates_batch(
+    template_path: &str,
+    output_dir: &str,
+    names: &[String],
+    x_pos: i32,
+    y_pos: i32,
+    font_filename: &str,
+    font_size: f32,
+    hex_color: &str,
+) -> Result<()> {
+    std::fs::create_dir_all(output_dir)
+        .with_context(|| format!("Failed to create output directory: {}", output_dir))?;
+    
+    let total = names.len();
+    let completed = Arc::new(AtomicUsize::new(0));
+    
+    println!("\n🎓 Generating {} certificates in parallel using {} cores...", 
+             total, 
+             rayon::current_num_threads());
+    
+    let results: Vec<Result<(), anyhow::Error>> = names
+        .par_iter()
+        .map(|name| {
+            let completed_clone = Arc::clone(&completed);
+            
+            let output_filename = format!("{}/certificate_{}.png", output_dir, 
+                                        name.replace(" ", "_").replace("/", "_").replace("\\", "_"));
+            
+            let result = add_text_with_custom_options(
+                template_path,
+                &output_filename,
+                name,
+                x_pos,
+                y_pos,
+                font_filename,
+                font_size,
+                hex_color,
+            );
+            
+            let current_completed = completed_clone.fetch_add(1, Ordering::Relaxed) + 1;
+            let progress = (current_completed as f64 / total as f64) * 100.0;
+            
+            match result {
+                Ok(()) => {
+                    println!("✅ [{:6.2}%] Generated: {}", progress, name);
+                    Ok(())
+                }
+                Err(e) => {
+                    println!("❌ [{:6.2}%] Failed: {} - {}", progress, name, e);
+                    Err(e)
+                }
+            }
+        })
+        .collect();
+    
+    // Summary
+    let success_count = results.iter().filter(|r| r.is_ok()).count();
+    let error_count = results.len() - success_count;
+    
+    println!("\n🎉 Parallel certificate generation complete!");
+    println!("⚡ Used {} CPU cores", rayon::current_num_threads());
+    println!("✅ Successfully generated: {} certificates", success_count);
+    if error_count > 0 {
+        println!("❌ Failed to generate: {} certificates", error_count);
+    }
+    println!("📁 Certificates saved in: {}", output_dir);
+    
+    Ok(())
+}
+
 
 // Interactive certificate generation with template and font selection
 pub fn generate_certificates_interactive() -> Result<()> {

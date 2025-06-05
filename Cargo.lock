@@ -12,6 +12,7 @@ dependencies = [
  "image",
  "imageproc",
  "png",
+ "rayon",
  "rusttype",
  "serde",
 ]

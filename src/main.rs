@@ -229,7 +229,32 @@ fn main() -> Result<()> {
                     println!("No text entered. Returning to menu...");
                     continue;
                 }
+                //DO analysis 
+                // Analyze PNG file - UPDATED with menu selection
+                println!("\n📊 PNG File Analysis");
                 
+                let file_path = match select_input_image() {
+                    Ok(file) => file,
+                    Err(e) => {
+                        println!("❌ {}", e);
+                        continue;
+                    }
+                };
+                
+                if !Path::new(&file_path).exists() {
+                    println!("❌ Selected file not found: {}", file_path);
+                    continue;
+                }
+                
+                match analyze_png_file(&file_path) {
+                    Ok(analysis) => print_analysis(&analysis),
+                    Err(e) => {
+                        println!("❌ Error analyzing file: {}", e);
+                        show_path_tips();
+                    }
+                }
+                
+                //end analysis
                 let x_input = get_user_input("Enter X position (or press Enter for default 50): ");
                 let x_pos = if x_input.is_empty() { 50 } else { x_input.parse().unwrap_or(50) };
                 
