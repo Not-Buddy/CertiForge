@@ -268,8 +268,18 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [ ] Generate your first batch of certificates! 🎉
 
 For questions or issues, please check the troubleshooting section or create an issue in the repository.
+
+
+## **Don't Wanna Build from source/Don't Wanna Install Rust**?
+
+```
+I made a few binaries in the folder Binaries of the project
+https://github.com/Not-Buddy/CertificateMakerRust/tree/master/Binaries
+
+Just Download for your system from there and make the folders that are required and run the cli application.
 ```
 
+```
 This README provides:
 
 1. **Clear project overview** with features
@@ -282,3 +292,4 @@ This README provides:
 8. **Professional formatting with emojis**
 
 The README is comprehensive enough for new users to get started quickly while providing enough detail for advanced usage!
+```
