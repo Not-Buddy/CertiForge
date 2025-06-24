@@ -1,7 +1,8 @@
 ```markdown
 # 🎓 Certificate Maker
 
-A Rust-based certificate generation tool that creates personalized certificates by overlaying names from CSV files onto PNG templates with customizable fonts, colors, and positioning.
+A Rust-based certificate generation tool that creates personalized certificates
+by overlaying names from CSV files onto PNG templates with customizable fonts, colors, and positioning.
 
 ## ✨ Features
 
@@ -23,13 +24,15 @@ A Rust-based certificate generation tool that creates personalized certificates 
 - Font files (TTF/OTF)
 
 ### Installation
+```
+
 
 1. **Clone or create the project**:
 ```
-git clone
+git clone https://github.com/Not-Buddy/CertificateMakerRust.git
+```
 
-
-
+```
 cd CertificateMaker
 ```
 
@@ -52,37 +55,21 @@ cargo run
 
 ```
 CertificateMaker/
-
 ├── src/
-
 │   ├── main.rs              # Main application with menu system
-
 │   ├── analysis.rs          # PNG file analysis functionality
-
 │   ├── editpng.rs          # Image editing and text overlay
-
 │   └── csvexcelparser.rs   # CSV parsing and certificate generation
-
 ├── excelcsvs/              # CSV files with names
-
 │   └── Names.csv
-
 ├── Template/               # PNG template files
-
 │   └── certificate.png
-
 ├── assets/                 # Font files
-
 │   ├── Arial.ttf
-
 │   └── DejaVuSans.ttf
-
 ├── certificates/           # Generated certificates (auto-created)
-
 ├── output/                 # Single image outputs (auto-created)
-
 ├── Cargo.toml
-
 └── README.md
 
 ```
