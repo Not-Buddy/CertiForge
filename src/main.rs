@@ -33,17 +33,14 @@ fn list_image_files_in_dir(dir_path: &str) -> Result<Vec<String>, String> {
     let entries = std::fs::read_dir(dir_path)
         .map_err(|_| format!("Failed to read directory '{}'", dir_path))?;
     
-    for entry in entries {
-        if let Ok(entry) = entry {
-            let path = entry.path();
-            if let Some(extension) = path.extension() {
-                let ext = extension.to_string_lossy().to_lowercase();
-                if ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "gif" {
-                    if let Some(filename) = path.file_name() {
-                        image_files.push(filename.to_string_lossy().to_string());
-                    }
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if let Some(extension) = path.extension() {
+            let ext = extension.to_string_lossy().to_lowercase();
+            if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "gif")
+                && let Some(filename) = path.file_name() {
+                    image_files.push(filename.to_string_lossy().to_string());
                 }
-            }
         }
     }
     
@@ -58,10 +55,7 @@ fn list_image_files_in_dir(dir_path: &str) -> Result<Vec<String>, String> {
 // Function to select input image file
 fn select_input_image() -> Result<String, String> {
     let base_path = "Template".to_string();
-    let image_files = match list_image_files_in_dir(&base_path) {
-        Ok(files) => files,
-        Err(e) => return Err(e),
-    };
+    let image_files = list_image_files_in_dir(&base_path)?;
     
     println!("\n🖼️ Available Image Files in 'Template' directory:");
     for (i, file) in image_files.iter().enumerate() {
@@ -72,14 +66,13 @@ fn select_input_image() -> Result<String, String> {
         let input = get_user_input("\nSelect image file (enter number or filename): ");
         
         // Try to parse as number first
-        if let Ok(num) = input.parse::<usize>() {
-            if num > 0 && num <= image_files.len() {
+        if let Ok(num) = input.parse::<usize>()
+            && num > 0 && num <= image_files.len() {
                 let selected_file = &image_files[num - 1];
                 let full_path = format!("{}/{}", base_path, selected_file);
                 println!("✅ Selected: {}", selected_file);
                 return Ok(full_path);
             }
-        }
         
         // Try to find by filename (case insensitive)
         for file in &image_files {

@@ -7,6 +7,14 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
+pub struct TextConfig<'a> {
+    pub x: i32,
+    pub y: i32,
+    pub font_filename: &'a str,
+    pub font_size: f32,
+    pub hex_color: &'a str,
+}
+
 // Function to list all font files in assets directory
 pub fn list_available_fonts() -> Result<Vec<String>> {
     let assets_dir = "assets";
@@ -21,11 +29,10 @@ pub fn list_available_fonts() -> Result<Vec<String>> {
             let path = entry.path();
             if let Some(extension) = path.extension() {
                 let ext = extension.to_string_lossy().to_lowercase();
-                if ext == "ttf" || ext == "otf" {
-                    if let Some(filename) = path.file_name() {
+                if (ext == "ttf" || ext == "otf")
+                    && let Some(filename) = path.file_name() {
                         font_files.push(filename.to_string_lossy().to_string());
                     }
-                }
             }
         }
     }
@@ -93,11 +100,10 @@ pub fn select_font() -> Result<String> {
         let input = get_user_input("\nEnter font name or number: ");
         
         // Try to parse as number first
-        if let Ok(num) = input.parse::<usize>() {
-            if num > 0 && num <= fonts.len() {
+        if let Ok(num) = input.parse::<usize>()
+            && num > 0 && num <= fonts.len() {
                 return Ok(fonts[num - 1].clone());
             }
-        }
         
         // Try to find by name (case insensitive)
         for font in &fonts {
@@ -228,26 +234,22 @@ pub fn add_text_with_custom_options(
     input_path: &str,
     output_path: &str,
     text: &str,
-    x: i32,
-    y: i32,
-    font_filename: &str,
-    font_size: f32,
-    hex_color: &str,
+    config: &TextConfig,
 ) -> Result<()> {
     let mut img = open(input_path)
         .with_context(|| format!("Failed to open image: {}", input_path))?
         .to_rgba8();
 
     // Load selected font
-    let font_data = load_font_data(font_filename)?;
+    let font_data = load_font_data(config.font_filename)?;
     let font = Font::try_from_bytes(&font_data)
-        .ok_or_else(|| anyhow::anyhow!("Failed to load font: {}", font_filename))?;
+        .ok_or_else(|| anyhow::anyhow!("Failed to load font: {}", config.font_filename))?;
 
     // Convert hex color to RGBA
-    let text_color = hex_to_rgba(hex_color)?;
+    let text_color = hex_to_rgba(config.hex_color)?;
 
-    let scale = Scale::uniform(font_size);
-    draw_text_mut(&mut img, text_color, x, y, scale, &font, text);
+    let scale = Scale::uniform(config.font_size);
+    draw_text_mut(&mut img, text_color, config.x, config.y, scale, &font, text);
 
     img.save_with_format(output_path, ImageFormat::Png)
         .with_context(|| format!("Failed to save image: {}", output_path))?;

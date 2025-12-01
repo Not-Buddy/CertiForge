@@ -9,7 +9,7 @@ use std::sync::Arc;
 use rayon::prelude::*;
 use rusttype::{Font, Scale, point};
 
-use crate::editpng::add_text_with_custom_options;
+use crate::editpng::{add_text_with_custom_options, TextConfig};
 use crate::analysis::analyze_png_file;
 
 
@@ -165,13 +165,11 @@ fn list_csv_files() -> Result<Vec<String>> {
     for entry in entries {
         let entry = entry?;
         let path = entry.path();
-        if let Some(extension) = path.extension() {
-            if extension.to_string_lossy().to_lowercase() == "csv" {
-                if let Some(filename) = path.file_name() {
+        if let Some(extension) = path.extension()
+            && extension.to_string_lossy().to_lowercase() == "csv"
+                && let Some(filename) = path.file_name() {
                     csv_files.push(filename.to_string_lossy().to_string());
                 }
-            }
-        }
     }
     
     if csv_files.is_empty() {
@@ -195,14 +193,13 @@ pub fn select_csv_file() -> Result<String> {
         let input = get_user_input("\nSelect CSV file (enter number or filename): ");
         
         // Try to parse as number first
-        if let Ok(num) = input.parse::<usize>() {
-            if num > 0 && num <= csv_files.len() {
+        if let Ok(num) = input.parse::<usize>()
+            && num > 0 && num <= csv_files.len() {
                 let selected_file = &csv_files[num - 1];
                 let full_path = format!("excelcsvs/{}", selected_file);
                 println!("✅ Selected: {}", selected_file);
                 return Ok(full_path);
             }
-        }
         
         // Try to find by filename (case insensitive)
         for file in &csv_files {
@@ -234,11 +231,10 @@ fn list_template_files() -> Result<Vec<String>> {
         let path = entry.path();
         if let Some(extension) = path.extension() {
             let ext = extension.to_string_lossy().to_lowercase();
-            if ext == "png" || ext == "jpg" || ext == "jpeg" {
-                if let Some(filename) = path.file_name() {
+            if (ext == "png" || ext == "jpg" || ext == "jpeg")
+                && let Some(filename) = path.file_name() {
                     template_files.push(filename.to_string_lossy().to_string());
                 }
-            }
         }
     }
     
@@ -263,14 +259,13 @@ pub fn select_template_file() -> Result<String> {
         let input = get_user_input("\nSelect template file (enter number or filename): ");
         
         // Try to parse as number first
-        if let Ok(num) = input.parse::<usize>() {
-            if num > 0 && num <= template_files.len() {
+        if let Ok(num) = input.parse::<usize>()
+            && num > 0 && num <= template_files.len() {
                 let selected_file = &template_files[num - 1];
                 let full_path = format!("Template/{}", selected_file);
                 println!("✅ Selected template: {}", selected_file);
                 return Ok(full_path);
             }
-        }
         
         // Try to find by filename (case insensitive)
         for file in &template_files {
@@ -328,17 +323,14 @@ fn list_font_files() -> Result<Vec<String>, String> {
     let entries = std::fs::read_dir(assets_dir)
         .map_err(|_| "Failed to read assets directory".to_string())?;
     
-    for entry in entries {
-        if let Ok(entry) = entry {
-            let path = entry.path();
-            if let Some(extension) = path.extension() {
-                let ext = extension.to_string_lossy().to_lowercase();
-                if ext == "ttf" || ext == "otf" || ext == "woff" || ext == "woff2" {
-                    if let Some(filename) = path.file_name() {
-                        font_files.push(filename.to_string_lossy().to_string());
-                    }
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if let Some(extension) = path.extension() {
+            let ext = extension.to_string_lossy().to_lowercase();
+            if (ext == "ttf" || ext == "otf" || ext == "woff" || ext == "woff2")
+                && let Some(filename) = path.file_name() {
+                    font_files.push(filename.to_string_lossy().to_string());
                 }
-            }
         }
     }
     
@@ -363,13 +355,12 @@ pub fn select_font_file() -> Result<String, String> {
         let input = get_user_input("\nSelect font file (enter number or filename): ");
         
         // Try to parse as number first
-        if let Ok(num) = input.parse::<usize>() {
-            if num > 0 && num <= font_files.len() {
+        if let Ok(num) = input.parse::<usize>()
+            && num > 0 && num <= font_files.len() {
                 let selected_file = &font_files[num - 1];
                 println!("✅ Selected font: {}", selected_file);
                 return Ok(selected_file.clone());
             }
-        }
         
         // Try to find by filename (case insensitive)
         for file in &font_files {
@@ -421,28 +412,24 @@ pub fn generate_certificates_batch(
     template_path: &str,
     output_dir: &str,
     names: &[String],
-    x_pos: i32,
-    y_pos: i32,
-    font_filename: &str,
-    font_size: f32,
-    hex_color: &str,
+    config: &TextConfig,
 ) -> Result<()> {
     std::fs::create_dir_all(output_dir)
         .with_context(|| format!("Failed to create output directory: {}", output_dir))?;
     
     // Load font once for text size calculations
-    let font_data = load_font_data(font_filename)?;
+    let font_data = load_font_data(config.font_filename)?;
     let font = Font::try_from_bytes(&font_data)
-        .ok_or_else(|| anyhow::anyhow!("Failed to load font: {}", font_filename))?;
+        .ok_or_else(|| anyhow::anyhow!("Failed to load font: {}", config.font_filename))?;
     
-    let scale = Scale::uniform(font_size);
+    let scale = Scale::uniform(config.font_size);
     let total = names.len();
     let completed = Arc::new(AtomicUsize::new(0));
     
     println!("\n🎓 Generating {} certificates in parallel using {} cores...", 
              total, 
              rayon::current_num_threads());
-    println!("🎯 Text will be centered around coordinates ({}, {})", x_pos, y_pos);
+    println!("🎯 Text will be centered around coordinates ({}, {})", config.x, config.y);
     
     let results: Vec<Result<(), anyhow::Error>> = names
         .par_iter()
@@ -456,18 +443,22 @@ pub fn generate_certificates_batch(
             let (text_width, text_height) = calculate_text_size(&font, scale, name);
             
             // Calculate centered position
-            let centered_x = x_pos - text_width / 2;
-            let centered_y = y_pos - text_height / 2;
+            let centered_x = config.x - text_width / 2;
+            let centered_y = config.y - text_height / 2;
+            
+            let item_config = TextConfig {
+                x: centered_x,
+                y: centered_y,
+                font_filename: config.font_filename,
+                font_size: config.font_size,
+                hex_color: config.hex_color,
+            };
             
             let result = add_text_with_custom_options(
                 template_path,
                 &output_filename,
                 name,
-                centered_x,  // Use centered coordinates
-                centered_y,  // Use centered coordinates
-                font_filename,
-                font_size,
-                hex_color,
+                &item_config,
             );
             
             let current_completed = completed_clone.fetch_add(1, Ordering::Relaxed) + 1;
@@ -493,7 +484,7 @@ pub fn generate_certificates_batch(
     
     println!("\n🎉 Parallel certificate generation complete!");
     println!("⚡ Used {} CPU cores", rayon::current_num_threads());
-    println!("🎯 All text was centered around ({}, {})", x_pos, y_pos);
+    println!("🎯 All text was centered around ({}, {})", config.x, config.y);
     println!("✅ Successfully generated: {} certificates", success_count);
     if error_count > 0 {
         println!("❌ Failed to generate: {} certificates", error_count);
@@ -597,16 +588,20 @@ pub fn generate_certificates_interactive() -> Result<()> {
     let output_dir = get_user_input("\nEnter output directory (default 'certificates'): ");
     let output_dir = if output_dir.is_empty() { "certificates" } else { &output_dir };
     
+    let config = TextConfig {
+        x: x_pos,
+        y: y_pos,
+        font_filename: &font_input,
+        font_size,
+        hex_color: &hex_color,
+    };
+
     // Generate certificates
     generate_certificates_batch(
         &template_file,
         output_dir,
         &names,
-        x_pos,
-        y_pos,
-        &font_input,
-        font_size,
-        &hex_color,
+        &config,
     )?;
     
     Ok(())
