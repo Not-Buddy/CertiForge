@@ -26,102 +26,58 @@ by overlaying names from CSV files onto PNG templates with customizable fonts, c
 
 ```mermaid
 graph TB
-    %% Main Entry Point
-    A[main.rs<br/>📋 Menu System] --> B{User Choice}
+    %% Main Entry
+    CLI[main.rs<br/>📋 Menu System]
     
     %% Menu Options
-    B -->|1| C[Single Image Text]
-    B -->|2| D[Batch Certificates]
-    B -->|3| E[PNG Analysis]
-    B -->|4| F[Create Sample CSV]
-    B -->|5| G[Debug CSV]
-    B -->|6| H[Debug Template]
-    B -->|7| I[Show Tips]
-    B -->|8| J[Exit]
+    subgraph Menu[Key Options]
+        M1[Single Image Text]
+        M2[Batch Certificates]
+        M3[PNG Analysis]
+        M4[Debug Tools]
+    end
     
     %% Core Modules
-    C --> K[editpng.rs<br/>🖼️ Image Editor]
-    D --> L[csvexcelparser.rs<br/>📊 CSV Parser & Batch Generator]
-    E --> M[analysis.rs<br/>🔍 PNG Analyzer]
-    G --> L
-    H --> M
-    F --> L
+    subgraph Modules[Core Modules]
+        Edit[editpng.rs<br/>🖼️ Add Text to Images<br/>Font & Color Control]
+        CSV[csvexcelparser.rs<br/>📊 CSV Parser<br/>Batch Generator<br/>Parallel Processing]
+        Analysis[analysis.rs<br/>🔍 PNG Technical Analysis<br/>Coordinate Calculator]
+    end
     
-    %% Directory Structure
-    N[📁 Template/] --> K
-    N --> L
-    N --> M
-    O[📁 excelcsvs/] --> L
-    P[📁 assets/] --> K
-    P --> L
-    Q[📁 output/] --> K
-    Q --> L
+    %% Directories
+    subgraph Dirs[File Structure]
+        Template[📁 Template/<br/>PNG/JPG templates]
+        Excel[📁 excelcsvs/<br/>CSV with names]
+        Assets[📁 assets/<br/>Font files .ttf]
+        Output[📁 output/<br/>Generated certs]
+    end
     
-    %% File Types in Directories
-    N1[🖼️ PNG/JPG Templates] --> N
-    O1[📄 CSV Files<br/>Name Column] --> O
-    P1[🔤 Font Files<br/>.ttf .otf .woff] --> P
-    Q1[✅ Generated Certificates] --> Q
+    %% Dependencies
+    Deps[📦 Dependencies<br/>image • imageproc • csv<br/>rayon • rusttype • png]
     
-    %% Core Functions in editpng.rs
-    K --> K1[add_text_to_png_interactive]
-    K --> K2[add_text_with_custom_options]
-    K --> K3[Font Selection]
-    K --> K4[Color Conversion<br/>Hex to RGBA]
-    K --> K5[Text Centering]
+    %% Connections
+    CLI --> Menu
+    Menu --> Modules
+    Dirs --> Modules
+    Deps --> Modules
     
-    %% Core Functions in csvexcelparser.rs
-    L --> L1[parse_csv_names]
-    L --> L2[generate_certificates_batch]
-    L --> L3[select_csv_file]
-    L --> L4[select_template_file]
-    L --> L5[Parallel Processing<br/>Rayon]
-    
-    %% Core Functions in analysis.rs
-    M --> M1[analyze_png_file]
-    M --> M2[print_analysis]
-    M --> M3[Calculate Coordinates]
-    M --> M4[PNG Technical Details]
-    
-    %% External Dependencies
-    R[📦 Dependencies] --> R1[image & imageproc<br/>Image Processing]
-    R --> R2[rusttype<br/>Font Rendering]
-    R --> R3[csv<br/>CSV Parsing]
-    R --> R4[rayon<br/>Parallel Processing]
-    R --> R5[anyhow<br/>Error Handling]
-    R --> R6[png<br/>PNG Decoding]
-    
-    %% Data Flow for Batch Generation
-    L2 --> S[Load Template]
-    L2 --> T[Parse CSV Names]
-    L2 --> U[Load Font Data]
-    S --> V[Calculate Text Position]
-    T --> V
-    U --> V
-    V --> W[Generate Certificate<br/>for Each Name]
-    W --> X[🚀 Parallel Processing]
-    X --> Y[💾 Save to Output]
-    
-    %% Interactive Features
-    Z[🎯 Interactive Features] --> Z1[Menu-driven Interface]
-    Z --> Z2[File Selection]
-    Z --> Z3[Font Customization]
-    Z --> Z4[Color Customization]
-    Z --> Z5[Position Control]
-    Z --> Z6[Debug Tools]
-    
-    %% Styling with Darker Colors
-    classDef moduleClass fill:#1565c0,stroke:#0d47a1,stroke-width:2px,color:#ffffff
-    classDef dirClass fill:#6a1b9a,stroke:#4a148c,stroke-width:2px,color:#ffffff
-    classDef fileClass fill:#2e7d32,stroke:#1b5e20,stroke-width:2px,color:#ffffff
-    classDef depClass fill:#ef6c00,stroke:#e65100,stroke-width:2px,color:#ffffff
-    classDef featureClass fill:#ad1457,stroke:#880e4f,stroke-width:2px,color:#ffffff
-    
-    class K,L,M moduleClass
-    class N,O,P,Q dirClass
-    class N1,O1,P1,Q1 fileClass
-    class R1,R2,R3,R4,R5,R6 depClass
-    class Z1,Z2,Z3,Z4,Z5,Z6 featureClass
+    %% Styling
+    style CLI stroke:#000,stroke-width:2px
+    style M1 stroke:#000,stroke-width:2px
+    style M2 stroke:#000,stroke-width:2px
+    style M3 stroke:#000,stroke-width:2px
+    style M4 stroke:#000,stroke-width:2px
+    style Edit stroke:#000,stroke-width:2px
+    style CSV stroke:#000,stroke-width:2px
+    style Analysis stroke:#000,stroke-width:2px
+    style Template stroke:#000,stroke-width:2px
+    style Excel stroke:#000,stroke-width:2px
+    style Assets stroke:#000,stroke-width:2px
+    style Output stroke:#000,stroke-width:2px
+    style Deps stroke:#000,stroke-width:2px
+    style Menu stroke:#000,stroke-width:2px
+    style Modules stroke:#000,stroke-width:2px
+    style Dirs stroke:#000,stroke-width:2px
 ```
 ### Installation
 
