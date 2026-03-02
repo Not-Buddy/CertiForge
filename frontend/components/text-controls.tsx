@@ -11,6 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useEffect, useState } from "react"
+import { fetchFonts, type FontInfo } from "@/lib/api-client"
 
 export interface TextSettings {
   text: string
@@ -21,15 +23,12 @@ export interface TextSettings {
   color: string
 }
 
-const FONTS = [
+// Fallback fonts in case backend is unreachable
+const FALLBACK_FONTS = [
   { value: "Inter", label: "Inter" },
   { value: "Arial", label: "Arial" },
   { value: "Georgia", label: "Georgia" },
   { value: "Times New Roman", label: "Times New Roman" },
-  { value: "Courier New", label: "Courier New" },
-  { value: "Verdana", label: "Verdana" },
-  { value: "Trebuchet MS", label: "Trebuchet MS" },
-  { value: "Impact", label: "Impact" },
 ]
 
 interface TextControlsProps {
@@ -40,6 +39,32 @@ interface TextControlsProps {
 }
 
 export function TextControls({ settings, onChange, imageWidth, imageHeight }: TextControlsProps) {
+  const [fonts, setFonts] = useState<{ value: string; label: string }[]>(FALLBACK_FONTS)
+  const [loadingFonts, setLoadingFonts] = useState(true)
+
+  useEffect(() => {
+    fetchFonts()
+      .then((serverFonts) => {
+        if (serverFonts.length > 0) {
+          setFonts(
+            serverFonts.map((f) => ({
+              value: f.name,
+              label: f.name.replace(/\.(ttf|otf|woff2?)$/i, ""),
+            }))
+          )
+          // Auto-select first font if the current selection doesn't exist on server
+          const currentExists = serverFonts.some((f) => f.name === settings.fontFamily)
+          if (!currentExists && serverFonts.length > 0) {
+            onChange({ ...settings, fontFamily: serverFonts[0].name })
+          }
+        }
+      })
+      .catch(() => {
+        // Keep fallback fonts
+      })
+      .finally(() => setLoadingFonts(false))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const update = (partial: Partial<TextSettings>) =>
     onChange({ ...settings, ...partial })
 
@@ -61,15 +86,15 @@ export function TextControls({ settings, onChange, imageWidth, imageHeight }: Te
       {/* Font controls */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <Label>Font Family</Label>
+          <Label>Font {loadingFonts && <span className="text-xs text-muted-foreground">(loading...)</span>}</Label>
           <Select value={settings.fontFamily} onValueChange={(v) => update({ fontFamily: v })}>
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {FONTS.map((f) => (
+              {fonts.map((f) => (
                 <SelectItem key={f.value} value={f.value}>
-                  <span style={{ fontFamily: f.value }}>{f.label}</span>
+                  {f.label}
                 </SelectItem>
               ))}
             </SelectContent>

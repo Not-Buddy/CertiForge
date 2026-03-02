@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { ImageUpload } from "@/components/image-upload"
 import { TextControls, type TextSettings } from "@/components/text-controls"
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Sparkles, Download, RotateCcw, CheckCircle2, Loader2 } from "lucide-react"
+import { generateSingle, type GenerateSingleConfig } from "@/lib/api-client"
 
 const DEFAULT_SETTINGS: TextSettings = {
   text: "",
@@ -20,13 +21,15 @@ const DEFAULT_SETTINGS: TextSettings = {
   color: "#000000",
 }
 
-type GenerationStatus = "idle" | "generating" | "success"
+type GenerationStatus = "idle" | "generating" | "success" | "error"
 
 export default function AddTextToImagePage() {
   const [image, setImage] = useState<HTMLImageElement | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [settings, setSettings] = useState<TextSettings>(DEFAULT_SETTINGS)
   const [status, setStatus] = useState<GenerationStatus>("idle")
+  const [errorMsg, setErrorMsg] = useState("")
+  const [generatedBlob, setGeneratedBlob] = useState<Blob | null>(null)
 
   const imageWidth = image?.naturalWidth ?? 0
   const imageHeight = image?.naturalHeight ?? 0
@@ -35,11 +38,12 @@ export default function AddTextToImagePage() {
     setImage(img)
     setFile(f)
     setStatus("idle")
+    setGeneratedBlob(null)
     // Center text on the image by default
     setSettings((prev) => ({
       ...prev,
-      posX: Math.round(img.naturalWidth * 0.1),
-      posY: Math.round(img.naturalHeight * 0.45),
+      posX: Math.round(img.naturalWidth / 2),
+      posY: Math.round(img.naturalHeight / 2),
     }))
   }, [])
 
@@ -48,26 +52,59 @@ export default function AddTextToImagePage() {
     setFile(null)
     setSettings(DEFAULT_SETTINGS)
     setStatus("idle")
+    setGeneratedBlob(null)
   }, [])
 
   const handleReset = useCallback(() => {
     setSettings(DEFAULT_SETTINGS)
     setStatus("idle")
+    setGeneratedBlob(null)
   }, [])
 
-  const handleGenerate = useCallback(() => {
-    if (!image || !settings.text.trim()) return
+  const handleGenerate = useCallback(async () => {
+    if (!file || !settings.text.trim()) return
     setStatus("generating")
-    // Simulated render time for realism
-    setTimeout(() => {
+    setErrorMsg("")
+    setGeneratedBlob(null)
+
+    try {
+      const config: GenerateSingleConfig = {
+        text: settings.text,
+        x: settings.posX,
+        y: settings.posY,
+        font: settings.fontFamily,
+        font_size: settings.fontSize,
+        color: settings.color,
+        center_text: true,
+      }
+
+      const blob = await generateSingle(file, config)
+      setGeneratedBlob(blob)
       setStatus("success")
-    }, 800)
-  }, [image, settings.text])
+    } catch (err: any) {
+      setErrorMsg(err.message || "Generation failed")
+      setStatus("error")
+    }
+  }, [file, settings])
 
   const handleDownload = useCallback(() => {
+    // If we have a server-generated blob, download that (better quality with real fonts)
+    if (generatedBlob) {
+      const url = URL.createObjectURL(generatedBlob)
+      const a = document.createElement("a")
+      a.href = url
+      const baseName = file?.name?.replace(/\.png$/i, "") ?? "certificate"
+      a.download = `${baseName}-generated.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      return
+    }
+
+    // Fallback: download from canvas preview
     const canvas = getCanvasElement()
     if (!canvas) return
-
     canvas.toBlob((blob) => {
       if (!blob) return
       const url = URL.createObjectURL(blob)
@@ -80,7 +117,7 @@ export default function AddTextToImagePage() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     }, "image/png")
-  }, [file])
+  }, [file, generatedBlob])
 
   const canGenerate = !!image && settings.text.trim().length > 0
 
@@ -172,6 +209,10 @@ export default function AddTextToImagePage() {
               )}
             </Button>
 
+            {status === "error" && (
+              <p className="text-sm text-destructive text-center">{errorMsg}</p>
+            )}
+
             {status === "success" && (
               <Button
                 variant="outline"
@@ -220,13 +261,13 @@ export default function AddTextToImagePage() {
         <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">
           <h3 className="text-sm font-medium text-foreground">Positioning</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Use the X and Y sliders to precisely place text on your template. Values are in pixels relative to the top-left corner.
+            Use the X and Y sliders to precisely place text on your template. Text is centered at the coordinates you set.
           </p>
         </div>
         <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">
-          <h3 className="text-sm font-medium text-foreground">Font Sizing</h3>
+          <h3 className="text-sm font-medium text-foreground">Server-Side Fonts</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Font size is in pixels and scales with your template resolution. Larger templates may need larger font sizes.
+            The backend renders text using actual TTF/OTF fonts from the assets/ directory, providing high-quality output.
           </p>
         </div>
         <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">

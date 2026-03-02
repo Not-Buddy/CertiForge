@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useState, useRef } from "react"
+import { useCallback, useState, useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"
-import { Upload, ImageIcon, X, Check } from "lucide-react"
+import { Upload, ImageIcon, X, Check, Loader2 } from "lucide-react"
+import { fetchTemplates, getTemplateUrl, uploadTemplate, type TemplateInfo } from "@/lib/api-client"
 
 export interface TemplateOption {
   id: string
@@ -10,6 +11,8 @@ export interface TemplateOption {
   src: string | null
   width: number
   height: number
+  /** If the template came from the server, this is a backend File to re-use */
+  serverFile?: File
 }
 
 interface TemplatePickerProps {
@@ -18,17 +21,53 @@ interface TemplatePickerProps {
   onClear: () => void
 }
 
-const SAMPLE_TEMPLATES: Omit<TemplateOption, "src">[] = [
-  { id: "classic", name: "Classic Certificate", width: 1200, height: 900 },
-  { id: "modern", name: "Modern Award", width: 1200, height: 850 },
-  { id: "elegant", name: "Elegant Diploma", width: 1400, height: 1000 },
-  { id: "minimal", name: "Minimal Badge", width: 1000, height: 750 },
-]
-
 export function TemplatePicker({ selected, onSelect, onClear }: TemplatePickerProps) {
   const [isDragging, setIsDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const [customImage, setCustomImage] = useState<HTMLImageElement | null>(null)
+  const [serverTemplates, setServerTemplates] = useState<TemplateInfo[]>([])
+  const [loadingTemplates, setLoadingTemplates] = useState(true)
+
+  useEffect(() => {
+    fetchTemplates()
+      .then((templates) => {
+        setServerTemplates(templates)
+      })
+      .catch(() => {
+        // No server templates available
+      })
+      .finally(() => setLoadingTemplates(false))
+  }, [])
+
+  const handleServerTemplateSelect = useCallback(
+    async (tpl: TemplateInfo) => {
+      // Fetch the template image from the server as a File object
+      const url = getTemplateUrl(tpl.name)
+      try {
+        const res = await fetch(url)
+        const blob = await res.blob()
+        const file = new File([blob], tpl.name, { type: blob.type })
+        onSelect({
+          id: `server-${tpl.name}`,
+          name: tpl.name,
+          src: url,
+          width: tpl.width,
+          height: tpl.height,
+          serverFile: file,
+        })
+      } catch {
+        // Fallback: select without file
+        onSelect({
+          id: `server-${tpl.name}`,
+          name: tpl.name,
+          src: url,
+          width: tpl.width,
+          height: tpl.height,
+        })
+      }
+    },
+    [onSelect]
+  )
 
   const handleFile = useCallback(
     (file: File) => {
@@ -43,6 +82,7 @@ export function TemplatePicker({ selected, onSelect, onClear }: TemplatePickerPr
           src: img.src,
           width: img.naturalWidth,
           height: img.naturalHeight,
+          serverFile: file,
         })
       }
       img.src = URL.createObjectURL(file)
@@ -67,54 +107,62 @@ export function TemplatePicker({ selected, onSelect, onClear }: TemplatePickerPr
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Sample templates grid */}
+      {/* Server templates grid */}
       <div>
-        <p className="text-sm font-medium text-foreground mb-3">Sample Templates</p>
-        <div className="grid grid-cols-2 gap-3">
-          {SAMPLE_TEMPLATES.map((tpl) => {
-            const isSelected = selected?.id === tpl.id
-            return (
-              <button
-                key={tpl.id}
-                type="button"
-                onClick={() =>
-                  onSelect({ ...tpl, src: null })
-                }
-                className={cn(
-                  "group relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all text-left",
-                  isSelected
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-muted-foreground/40 hover:bg-secondary/30"
-                )}
-              >
-                {isSelected && (
-                  <div className="absolute top-2 right-2 flex items-center justify-center size-5 rounded-full bg-primary">
-                    <Check className="size-3 text-primary-foreground" />
-                  </div>
-                )}
-                <div
+        <p className="text-sm font-medium text-foreground mb-3">
+          Available Templates
+          {loadingTemplates && <Loader2 className="ml-2 inline size-3 animate-spin" />}
+        </p>
+        {serverTemplates.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3">
+            {serverTemplates.map((tpl) => {
+              const isSelected = selected?.id === `server-${tpl.name}`
+              return (
+                <button
+                  key={tpl.name}
+                  type="button"
+                  onClick={() => handleServerTemplateSelect(tpl)}
                   className={cn(
-                    "flex items-center justify-center w-full aspect-[4/3] rounded-md transition-colors",
-                    isSelected ? "bg-primary/10" : "bg-secondary"
+                    "group relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all text-left",
+                    isSelected
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-muted-foreground/40 hover:bg-secondary/30"
                   )}
                 >
-                  <ImageIcon
+                  {isSelected && (
+                    <div className="absolute top-2 right-2 flex items-center justify-center size-5 rounded-full bg-primary">
+                      <Check className="size-3 text-primary-foreground" />
+                    </div>
+                  )}
+                  <div
                     className={cn(
-                      "size-8 transition-colors",
-                      isSelected ? "text-primary" : "text-muted-foreground"
+                      "flex items-center justify-center w-full aspect-[4/3] rounded-md transition-colors overflow-hidden",
+                      isSelected ? "bg-primary/10" : "bg-secondary"
                     )}
-                  />
-                </div>
-                <div className="w-full">
-                  <p className="text-xs font-medium text-foreground truncate">{tpl.name}</p>
-                  <p className="text-[10px] text-muted-foreground font-mono">
-                    {tpl.width}x{tpl.height}
-                  </p>
-                </div>
-              </button>
-            )
-          })}
-        </div>
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={getTemplateUrl(tpl.name)}
+                      alt={tpl.name}
+                      className="w-full h-full object-contain"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="w-full">
+                    <p className="text-xs font-medium text-foreground truncate">{tpl.name}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">
+                      {tpl.width}x{tpl.height}
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        ) : !loadingTemplates ? (
+          <p className="text-xs text-muted-foreground py-4 text-center rounded-lg border border-dashed border-border">
+            No templates found on server. Upload one below or add PNG files to the Template/ directory.
+          </p>
+        ) : null}
       </div>
 
       {/* Or divider */}

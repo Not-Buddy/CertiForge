@@ -1,18 +1,19 @@
 // src/analysis.rs
 use anyhow::{Context, Result};
-use image::{open, GenericImageView};
-use png::{Decoder, ColorType, BitDepth};
+use image::{GenericImageView, open};
+use png::{BitDepth, ColorType, Decoder};
+use serde::Serialize;
 use std::fs::File;
 use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct PngAnalysis {
     pub filename: String,
     pub file_size_bytes: u64,
     pub width: u32,
     pub height: u32,
-    pub color_type: ColorType,
-    pub bit_depth: BitDepth,
+    pub color_type_str: String,
+    pub bit_depth_val: u8,
     pub has_transparency: bool,
     pub pixel_count: u64,
     pub bytes_per_pixel: u8,
@@ -20,30 +21,38 @@ pub struct PngAnalysis {
 
 pub fn analyze_png_file(file_path: &str) -> Result<PngAnalysis> {
     let path = Path::new(file_path);
-    
+
     // Get file size
     let file_size_bytes = std::fs::metadata(path)
         .with_context(|| format!("Failed to read file metadata for {}", file_path))?
         .len();
 
     // Basic image analysis using image crate
-    let img = open(path)
-        .with_context(|| format!("Failed to open image file {}", file_path))?;
+    let img = open(path).with_context(|| format!("Failed to open image file {}", file_path))?;
 
     let (width, height) = img.dimensions();
 
     // Detailed PNG analysis using png crate
-    let file = File::open(path)
-        .with_context(|| format!("Failed to open file {}", file_path))?;
-    
+    let file = File::open(path).with_context(|| format!("Failed to open file {}", file_path))?;
+
     let decoder = Decoder::new(file);
-    let reader = decoder.read_info()
+    let reader = decoder
+        .read_info()
         .with_context(|| "Failed to read PNG info")?;
 
     let info = reader.info();
     let color_type = info.color_type;
     let bit_depth = info.bit_depth;
-    
+
+    let color_type_str = format!("{:?}", color_type);
+    let bit_depth_val = match bit_depth {
+        BitDepth::One => 1,
+        BitDepth::Two => 2,
+        BitDepth::Four => 4,
+        BitDepth::Eight => 8,
+        BitDepth::Sixteen => 16,
+    };
+
     // Calculate additional metrics
     let pixel_count = (width as u64) * (height as u64);
     let bytes_per_pixel = match color_type {
@@ -54,16 +63,16 @@ pub fn analyze_png_file(file_path: &str) -> Result<PngAnalysis> {
         ColorType::Rgba => 4,
     };
 
-    let has_transparency = matches!(color_type, ColorType::GrayscaleAlpha | ColorType::Rgba) 
-        || info.trns.is_some();
+    let has_transparency =
+        matches!(color_type, ColorType::GrayscaleAlpha | ColorType::Rgba) || info.trns.is_some();
 
     Ok(PngAnalysis {
         filename: file_path.to_string(),
         file_size_bytes,
         width,
         height,
-        color_type,
-        bit_depth,
+        color_type_str,
+        bit_depth_val,
         has_transparency,
         pixel_count,
         bytes_per_pixel,
@@ -73,16 +82,20 @@ pub fn analyze_png_file(file_path: &str) -> Result<PngAnalysis> {
 pub fn print_analysis(analysis: &PngAnalysis) {
     println!("=== PNG File Analysis ===");
     println!("File: {}", analysis.filename);
-    println!("File size: {} bytes ({:.2} KB)", 
-             analysis.file_size_bytes, 
-             analysis.file_size_bytes as f64 / 1024.0);
-    
+    println!(
+        "File size: {} bytes ({:.2} KB)",
+        analysis.file_size_bytes,
+        analysis.file_size_bytes as f64 / 1024.0
+    );
+
     println!("\n--- Image Properties ---");
     println!("Dimensions: {}x{} pixels", analysis.width, analysis.height);
     println!("Total pixels: {}", analysis.pixel_count);
-    println!("Aspect ratio: {:.3}", analysis.width as f64 / analysis.height as f64);
-    
-    // Separate coordinates section with useful positioning information
+    println!(
+        "Aspect ratio: {:.3}",
+        analysis.width as f64 / analysis.height as f64
+    );
+
     println!("\n--- Useful Coordinates ---");
     let middle_x = analysis.width / 2;
     let middle_y = analysis.height / 2;
@@ -90,40 +103,63 @@ pub fn print_analysis(analysis: &PngAnalysis) {
     let quarter_y = analysis.height / 4;
     let three_quarter_x = (analysis.width * 3) / 4;
     let three_quarter_y = (analysis.height * 3) / 4;
-    
+
     println!("🎯 Center point: ({}, {})", middle_x, middle_y);
     println!("📍 Corner coordinates:");
     println!("  • Top-left: (0, 0)");
     println!("  • Top-right: ({}, 0)", analysis.width - 1);
     println!("  • Bottom-left: (0, {})", analysis.height - 1);
-    println!("  • Bottom-right: ({}, {})", analysis.width - 1, analysis.height - 1);
-    
+    println!(
+        "  • Bottom-right: ({}, {})",
+        analysis.width - 1,
+        analysis.height - 1
+    );
+
     println!("📐 Edge midpoints:");
     println!("  • Top edge center: ({}, 0)", middle_x);
-    println!("  • Bottom edge center: ({}, {})", middle_x, analysis.height - 1);
+    println!(
+        "  • Bottom edge center: ({}, {})",
+        middle_x,
+        analysis.height - 1
+    );
     println!("  • Left edge center: (0, {})", middle_y);
-    println!("  • Right edge center: ({}, {})", analysis.width - 1, middle_y);
-    
+    println!(
+        "  • Right edge center: ({}, {})",
+        analysis.width - 1,
+        middle_y
+    );
+
     println!("🔳 Quarter positions:");
     println!("  • Top-left quarter: ({}, {})", quarter_x, quarter_y);
-    println!("  • Top-right quarter: ({}, {})", three_quarter_x, quarter_y);
-    println!("  • Bottom-left quarter: ({}, {})", quarter_x, three_quarter_y);
-    println!("  • Bottom-right quarter: ({}, {})", three_quarter_x, three_quarter_y);
+    println!(
+        "  • Top-right quarter: ({}, {})",
+        three_quarter_x, quarter_y
+    );
+    println!(
+        "  • Bottom-left quarter: ({}, {})",
+        quarter_x, three_quarter_y
+    );
+    println!(
+        "  • Bottom-right quarter: ({}, {})",
+        three_quarter_x, three_quarter_y
+    );
 
     println!("\n--- Color Information ---");
-    println!("Color type: {:?}", analysis.color_type);
-    println!("Bit depth: {:?}", analysis.bit_depth);
+    println!("Color type: {}", analysis.color_type_str);
+    println!("Bit depth: {}", analysis.bit_depth_val);
     println!("Bytes per pixel: {}", analysis.bytes_per_pixel);
     println!("Has transparency: {}", analysis.has_transparency);
-    
+
     println!("\n--- Technical Details ---");
     let theoretical_size = analysis.pixel_count * analysis.bytes_per_pixel as u64;
     let compression_ratio = theoretical_size as f64 / analysis.file_size_bytes as f64;
-    println!("Theoretical uncompressed size: {} bytes ({:.2} KB)", 
-             theoretical_size, 
-             theoretical_size as f64 / 1024.0);
+    println!(
+        "Theoretical uncompressed size: {} bytes ({:.2} KB)",
+        theoretical_size,
+        theoretical_size as f64 / 1024.0
+    );
     println!("Compression ratio: {:.2}:1", compression_ratio);
-    
+
     // Classify image size
     let size_category = match (analysis.width, analysis.height) {
         (w, h) if w <= 128 && h <= 128 => "Thumbnail",

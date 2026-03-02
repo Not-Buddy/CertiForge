@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { CsvUpload, type CsvParseResult } from "@/components/csv-upload"
 import { TemplatePicker, type TemplateOption } from "@/components/template-picker"
+import { TextControls, type TextSettings } from "@/components/text-controls"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,17 +23,20 @@ import {
   Loader2,
   PackageCheck,
   FileCheck,
+  Settings2,
 } from "lucide-react"
+import { generateBatch, checkJobStatus, downloadJob, type GenerateBatchConfig } from "@/lib/api-client"
 
-type Step = 1 | 2 | 3
+type Step = 1 | 2 | 3 | 4
 
 const STEPS = [
   { step: 1 as Step, label: "Upload CSV", icon: FileSpreadsheet },
   { step: 2 as Step, label: "Select Template", icon: ImageIcon },
-  { step: 3 as Step, label: "Generate", icon: Sparkles },
+  { step: 3 as Step, label: "Settings", icon: Settings2 },
+  { step: 4 as Step, label: "Generate", icon: Sparkles },
 ]
 
-type GenerationPhase = "idle" | "generating" | "success"
+type GenerationPhase = "idle" | "generating" | "success" | "error"
 
 export default function GenerateCertificatesPage() {
   const [currentStep, setCurrentStep] = useState<Step>(1)
@@ -55,6 +59,8 @@ export default function GenerateCertificatesPage() {
       setCsvError("CSV file contains no data rows. Please upload a file with at least one record.")
     } else if (result.headers.length === 0) {
       setCsvError("Could not detect column headers in the CSV file.")
+    } else if (!result.headers.some(h => h.trim().toLowerCase() === "name")) {
+      setCsvError("CSV must have a 'Name' column. Found columns: " + result.headers.join(", "))
     } else {
       setCsvError(null)
     }
@@ -78,39 +84,100 @@ export default function GenerateCertificatesPage() {
   const canAdvanceFromStep2 = !!template
 
   const goNext = useCallback(() => {
-    setCurrentStep((s) => Math.min(s + 1, 3) as Step)
+    setCurrentStep((s) => Math.min(s + 1, 4) as Step)
   }, [])
 
   const goPrev = useCallback(() => {
     setCurrentStep((s) => Math.max(s - 1, 1) as Step)
   }, [])
 
-  const handleGenerate = useCallback(() => {
-    if (!csvResult || !template) return
+  const [textSettings, setTextSettings] = useState<TextSettings>({
+    text: "",
+    fontFamily: "DejaVuSans.ttf",
+    fontSize: 48,
+    posX: 600,
+    posY: 450,
+    color: "#000000",
+  })
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const handleGenerate = useCallback(async () => {
+    if (!csvFile || !template) return
+
+    // We need the template as a File object
+    const templateFile = (template as any).serverFile as File | undefined
+    if (!templateFile) {
+      setErrorMsg("Please select a template from the server or upload a PNG template.")
+      setPhase("error")
+      return
+    }
+
     setPhase("generating")
     setProgress(0)
     setGenerated(0)
+    setErrorMsg(null)
 
-    const total = csvResult.rowCount
-    let current = 0
-    const perTick = Math.max(1, Math.ceil(total / 30))
-
-    intervalRef.current = setInterval(() => {
-      current = Math.min(current + perTick, total)
-      const pct = Math.round((current / total) * 100)
-      setProgress(pct)
-      setGenerated(current)
-
-      if (current >= total) {
-        if (intervalRef.current) clearInterval(intervalRef.current)
-        setTimeout(() => {
-          setPhase("success")
-          setProgress(100)
-          setGenerated(total)
-        }, 300)
+    try {
+      const config: GenerateBatchConfig = {
+        x: textSettings.posX,
+        y: textSettings.posY,
+        font: textSettings.fontFamily,
+        font_size: textSettings.fontSize,
+        color: textSettings.color,
       }
-    }, 80)
-  }, [csvResult, template])
+
+      const result = await generateBatch(templateFile, csvFile, config)
+      setJobId(result.job_id)
+
+      // Poll for progress
+      const poll = setInterval(async () => {
+        try {
+          const status = await checkJobStatus(result.job_id)
+          const pct = Math.round((status.completed / status.total) * 100)
+          setProgress(pct)
+          setGenerated(status.completed)
+
+          if (status.status === "done") {
+            clearInterval(poll)
+            setPhase("success")
+            setProgress(100)
+            setGenerated(status.total)
+          } else if (status.status === "error") {
+            clearInterval(poll)
+            setPhase("error")
+            setErrorMsg(status.error || "Generation failed")
+          }
+        } catch {
+          clearInterval(poll)
+          setPhase("error")
+          setErrorMsg("Failed to check job status")
+        }
+      }, 500)
+
+      intervalRef.current = poll
+    } catch (err: any) {
+      setPhase("error")
+      setErrorMsg(err.message || "Batch generation failed")
+    }
+  }, [csvFile, template, textSettings])
+
+  const handleDownloadZip = useCallback(async () => {
+    if (!jobId) return
+    try {
+      const blob = await downloadJob(jobId)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `certificates-${jobId.slice(0, 8)}.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err: any) {
+      console.error("Download failed:", err)
+    }
+  }, [jobId])
 
   useEffect(() => {
     return () => {
@@ -127,6 +194,8 @@ export default function GenerateCertificatesPage() {
     setPhase("idle")
     setProgress(0)
     setGenerated(0)
+    setJobId(null)
+    setErrorMsg(null)
     if (intervalRef.current) clearInterval(intervalRef.current)
   }, [])
 
@@ -297,6 +366,25 @@ export default function GenerateCertificatesPage() {
           {currentStep === 3 && phase === "idle" && (
             <>
               <CardHeader>
+                <CardTitle className="text-base">Text Settings</CardTitle>
+                <CardDescription>
+                  Configure font, size, position, and color for the name text on certificates.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TextControls
+                  settings={textSettings}
+                  onChange={setTextSettings}
+                  imageWidth={template?.width ?? 1200}
+                  imageHeight={template?.height ?? 900}
+                />
+              </CardContent>
+            </>
+          )}
+
+          {currentStep === 4 && phase === "idle" && (
+            <>
+              <CardHeader>
                 <CardTitle className="text-base">Ready to Generate</CardTitle>
                 <CardDescription>
                   Review the configuration below and click Generate to create your certificates.
@@ -346,12 +434,12 @@ export default function GenerateCertificatesPage() {
             </>
           )}
 
-          {currentStep === 3 && phase === "generating" && (
+          {currentStep === 4 && phase === "generating" && (
             <>
               <CardHeader>
                 <CardTitle className="text-base">Generating Certificates</CardTitle>
                 <CardDescription>
-                  Please wait while your certificates are being generated...
+                  Please wait while your certificates are being generated on the server...
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col items-center justify-center gap-6 py-8">
@@ -371,7 +459,23 @@ export default function GenerateCertificatesPage() {
             </>
           )}
 
-          {currentStep === 3 && phase === "success" && (
+          {currentStep === 4 && phase === "error" && (
+            <>
+              <CardHeader>
+                <CardTitle className="text-base">Generation Failed</CardTitle>
+                <CardDescription>An error occurred during certificate generation.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center justify-center gap-6 py-8">
+                <p className="text-sm text-destructive text-center">{errorMsg}</p>
+                <Button variant="outline" onClick={handleReset}>
+                  <RotateCcw className="size-4" />
+                  Start Over
+                </Button>
+              </CardContent>
+            </>
+          )}
+
+          {currentStep === 4 && phase === "success" && (
             <>
               <CardHeader>
                 <CardTitle className="text-base">Generation Complete</CardTitle>
@@ -390,7 +494,7 @@ export default function GenerateCertificatesPage() {
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
-                  <Button size="lg" className="flex-1">
+                  <Button size="lg" className="flex-1" onClick={handleDownloadZip}>
                     <Download className="size-4" />
                     Download ZIP
                   </Button>
@@ -448,9 +552,9 @@ export default function GenerateCertificatesPage() {
           </Card>
 
           {/* Navigation buttons */}
-          {phase !== "success" && (
+          {phase !== "success" && phase !== "error" && (
             <div className="flex flex-col gap-2">
-              {currentStep < 3 && (
+              {currentStep < 4 && (
                 <Button
                   onClick={goNext}
                   disabled={
