@@ -371,7 +371,7 @@ async fn run_server() -> std::io::Result<()> {
     let jobs: api::Jobs = Arc::new(Mutex::new(HashMap::new()));
 
     println!("🚀 CertiForge API Server starting...");
-    println!("📡 Listening on http://127.0.0.1:8080");
+    println!("📡 Listening on http://127.0.0.1:7000");
     println!("💡 Use --cli flag to run the interactive CLI instead");
     println!();
 
