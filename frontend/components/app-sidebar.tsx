@@ -30,10 +30,10 @@ const navItems = [
   { label: "Analyze PNG File", icon: ScanSearch, href: "/analyze-png" },
   { label: "Create Sample CSV", icon: FilePlus2, href: "/create-sample-csv" },
   { label: "Debug CSV File", icon: Bug, href: "/debug-csv" },
-  { label: "Debug Template File", icon: FileCode2, href: "#" },
-  { label: "Debug Font Files", icon: Type, href: "#" },
-  { label: "File Organization Tips", icon: FolderOpen, href: "#" },
-  { label: "Settings", icon: Settings, href: "#" },
+  { label: "Debug Template File", icon: FileCode2, href: "/debug-template" },
+  { label: "Debug Font Files", icon: Type, href: "/debug-fonts" },
+  { label: "File Organization Tips", icon: FolderOpen, href: "/file-organization-tips" },
+  { label: "Settings", icon: Settings, href: "/settings" },
 ]
 
 interface AppSidebarProps {

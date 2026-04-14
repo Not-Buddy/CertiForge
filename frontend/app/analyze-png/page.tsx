@@ -26,13 +26,16 @@ import {
   Maximize2,
   Grid3X3,
   Scan,
+  Server,
 } from "lucide-react"
+import { analyzePngServer, type PngAnalysis } from "@/lib/api-client"
 
 type AnalysisState = "empty" | "analyzing" | "done" | "error"
 
 export default function AnalyzePngPage() {
   const [file, setFile] = useState<File | null>(null)
   const [metadata, setMetadata] = useState<PngMetadata | null>(null)
+  const [serverAnalysis, setServerAnalysis] = useState<PngAnalysis | null>(null)
   const [state, setState] = useState<AnalysisState>("empty")
   const [error, setError] = useState("")
   const [copied, setCopied] = useState(false)
@@ -41,9 +44,25 @@ export default function AnalyzePngPage() {
     setFile(f)
     setState("analyzing")
     setError("")
+    setServerAnalysis(null)
     try {
-      const result = await analyzePng(f)
-      setMetadata(result)
+      // Run both client-side and server-side analysis in parallel
+      const [clientResult, serverResult] = await Promise.allSettled([
+        analyzePng(f),
+        analyzePngServer(f),
+      ])
+
+      if (clientResult.status === "fulfilled") {
+        setMetadata(clientResult.value)
+      } else {
+        throw clientResult.reason
+      }
+
+      if (serverResult.status === "fulfilled") {
+        setServerAnalysis(serverResult.value)
+      }
+      // Server failure is non-fatal — we still show client results
+
       setState("done")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analysis failed")
@@ -55,6 +74,7 @@ export default function AnalyzePngPage() {
     if (metadata?.previewUrl) URL.revokeObjectURL(metadata.previewUrl)
     setFile(null)
     setMetadata(null)
+    setServerAnalysis(null)
     setState("empty")
     setError("")
     setCopied(false)
@@ -74,11 +94,18 @@ export default function AnalyzePngPage() {
       `DPI: ${metadata.dpiX} x ${metadata.dpiY}`,
       `Transparency: ${metadata.hasTransparency ? `Yes (${metadata.transparentPixelPercent}% transparent pixels)` : "No"}`,
     ]
+    if (serverAnalysis) {
+      lines.push(``, `--- Server Analysis ---`)
+      lines.push(`Color Type: ${serverAnalysis.color_type_str}`)
+      lines.push(`Bit Depth (server): ${serverAnalysis.bit_depth_val}`)
+      lines.push(`Pixel Count: ${serverAnalysis.pixel_count.toLocaleString()}`)
+      lines.push(`Bytes/Pixel: ${serverAnalysis.bytes_per_pixel}`)
+    }
     navigator.clipboard.writeText(lines.join("\n")).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
-  }, [metadata])
+  }, [metadata, serverAnalysis])
 
   const warnings = getWarnings(metadata)
 
@@ -112,7 +139,7 @@ export default function AnalyzePngPage() {
             <div className="text-center">
               <p className="text-sm font-medium text-foreground">Analyzing image...</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Reading pixel data and extracting metadata
+                Reading pixel data and querying server
               </p>
             </div>
           </CardContent>
@@ -222,6 +249,46 @@ export default function AnalyzePngPage() {
                   </dl>
                 </CardContent>
               </Card>
+
+              {/* Server analysis card */}
+              {serverAnalysis && (
+                <Card className="border-primary/20 bg-primary/[0.02]">
+                  <CardHeader className="pb-0">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Server className="size-4 text-primary" />
+                      Server Analysis
+                    </CardTitle>
+                    <CardDescription>Analyzed by the Rust backend engine</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <dl className="flex flex-col gap-3">
+                      <MetaRow label="Color Type" value={serverAnalysis.color_type_str} />
+                      <MetaRow label="Bit Depth" value={`${serverAnalysis.bit_depth_val}-bit`} />
+                      <MetaRow label="Pixel Count" value={serverAnalysis.pixel_count.toLocaleString()} />
+                      <MetaRow label="Bytes/Pixel" value={String(serverAnalysis.bytes_per_pixel)} />
+                      <MetaRow label="Transparency" value={serverAnalysis.has_transparency ? "Yes" : "No"} />
+                    </dl>
+                  </CardContent>
+                </Card>
+              )}
+
+              {!serverAnalysis && state === "done" && (
+                <Card className="border-border bg-secondary/30">
+                  <CardContent className="flex items-center gap-3 py-4">
+                    <div className="flex items-center justify-center size-9 rounded-full bg-secondary">
+                      <Server className="size-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        Server analysis unavailable
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Start the Rust backend to enable server-side analysis.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
 
