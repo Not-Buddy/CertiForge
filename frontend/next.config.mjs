@@ -8,7 +8,7 @@ const nextConfig = {
   },
   async rewrites() {
     // Override the API URL in production (e.g. Vercel) using NEXT_PUBLIC_BACKEND_URL
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:7000";
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://alpha.innosolve.in/certiforge";
 
     return [
       {

@@ -1,4 +1,5 @@
-const API_BASE = "/api";
+const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "https://alpha.innosolve.in/certiforge";
+const API_BASE = `${baseUrl}/api`;
 
 // ---------------------------------------------------------------------------
 //  Types

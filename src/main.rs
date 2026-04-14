@@ -377,7 +377,10 @@ async fn run_server() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         let cors = Cors::default()
-            .allow_any_origin()
+            .allowed_origin("https://certiforgedeployment.vercel.app")
+            .allowed_origin("https://certiforgedeployment.vercel.app/")
+            .allowed_origin("http://localhost:3000")
+            .allowed_origin("http://127.0.0.1:3000")
             .allow_any_method()
             .allow_any_header()
             .max_age(3600);
@@ -401,7 +404,7 @@ async fn run_server() -> std::io::Result<()> {
             .route("/api/upload-template", web::post().to(api::upload_template))
             .route("/api/upload-font", web::post().to(api::upload_font))
     })
-    .bind("127.0.0.1:8080")?
+    .bind("127.0.0.1:7000")?
     .run()
     .await
 }
