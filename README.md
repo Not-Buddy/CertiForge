@@ -1,33 +1,26 @@
-```markdown
-# 🎓 Certificate Maker
+---
 
-A Rust-based certificate generation tool that creates personalized certificates
-by overlaying names from CSV files onto PNG templates with customizable fonts, colors, and positioning.
+# Certificate Maker
 
-## ✨ Features
+A high-performance Rust-based utility for automated certificate generation. This tool enables the creation of personalized documents by overlaying data from CSV sources onto PNG/JPG templates with precise control over typography, color, and positioning.
 
-- **📊 PNG Analysis**: Analyze image properties, dimensions, and technical details
-- **✏️ Interactive Text Overlay**: Add custom text to images with font and color selection
-- **🎯 Batch Certificate Generation**: Generate hundreds of certificates from CSV name lists
-- **🗂️ Menu-Driven Interface**: No manual path typing - select files from organized directories
-- **🎨 Font Management**: Choose from fonts in your assets directory
-- **🔍 Debug Tools**: Troubleshoot CSV files, templates, and fonts
-- **📁 Smart File Organization**: Automatic directory structure for easy management
+## Features
 
-## 🚀 Quick Start
+* **PNG Metadata Analysis**: Inspect image dimensions, color profiles, and technical properties.
+* **Dynamic Text Overlay**: Interactive placement of text with support for custom fonts and RGBA color selection.
+* **High-Volume Batch Processing**: Generate hundreds of individual certificates from CSV datasets using parallel processing.
+* **Automated Directory Management**: Built-in file system organization to manage templates, assets, and outputs efficiently.
+* **Advanced Font Support**: Compatible with TTF, OTF, WOFF, and WOFF2 formats via the `assets` directory.
+* **Integrated Debugging Suite**: Specialized tools for validating CSV formatting, template integrity, and font accessibility.
 
-### Prerequisites
+## System Architecture
 
-- [Rust](https://rustup.rs/) (latest stable version)
-- PNG template files
-- CSV files with names
-- Font files (TTF/OTF)
-```
+The following diagram illustrates the relationship between the CLI menu system, the core processing modules, and the required file structure.
 
 ```mermaid
 graph TB
     %% Main Entry
-    CLI[main.rs<br/>📋 Menu System]
+    CLI[main.rs<br/>Menu System]
     
     %% Menu Options
     subgraph Menu[Key Options]
@@ -39,21 +32,21 @@ graph TB
     
     %% Core Modules
     subgraph Modules[Core Modules]
-        Edit[editpng.rs<br/>🖼️ Add Text to Images<br/>Font & Color Control]
-        CSV[csvexcelparser.rs<br/>📊 CSV Parser<br/>Batch Generator<br/>Parallel Processing]
-        Analysis[analysis.rs<br/>🔍 PNG Technical Analysis<br/>Coordinate Calculator]
+        Edit[editpng.rs<br/>Text Rendering<br/>Font & Color Control]
+        CSV[csvexcelparser.rs<br/>CSV Data Ingestion<br/>Parallel Processing]
+        Analysis[analysis.rs<br/>Technical Analysis<br/>Coordinate Calculator]
     end
     
     %% Directories
     subgraph Dirs[File Structure]
-        Template[📁 Template/<br/>PNG/JPG templates]
-        Excel[📁 excelcsvs/<br/>CSV with names]
-        Assets[📁 assets/<br/>Font files .ttf]
-        Output[📁 output/<br/>Generated certs]
+        Template[Folder: Template/<br/>PNG/JPG templates]
+        Excel[Folder: excelcsvs/<br/>CSV name lists]
+        Assets[Folder: assets/<br/>Font files]
+        Output[Folder: output/<br/>Generated files]
     end
     
     %% Dependencies
-    Deps[📦 Dependencies<br/>image • imageproc • csv<br/>rayon • rusttype • png]
+    Deps[Dependencies<br/>image, imageproc, csv<br/>rayon, rusttype]
     
     %% Connections
     CLI --> Menu
@@ -62,273 +55,100 @@ graph TB
     Deps --> Modules
     
     %% Styling
-    style CLI stroke:#000,stroke-width:2px
-    style M1 stroke:#000,stroke-width:2px
-    style M2 stroke:#000,stroke-width:2px
-    style M3 stroke:#000,stroke-width:2px
-    style M4 stroke:#000,stroke-width:2px
-    style Edit stroke:#000,stroke-width:2px
-    style CSV stroke:#000,stroke-width:2px
-    style Analysis stroke:#000,stroke-width:2px
-    style Template stroke:#000,stroke-width:2px
-    style Excel stroke:#000,stroke-width:2px
-    style Assets stroke:#000,stroke-width:2px
-    style Output stroke:#000,stroke-width:2px
-    style Deps stroke:#000,stroke-width:2px
-    style Menu stroke:#000,stroke-width:2px
-    style Modules stroke:#000,stroke-width:2px
-    style Dirs stroke:#000,stroke-width:2px
-```
-### Installation
-
-1. **Clone or create the project**:
-```
-git clone https://github.com/Not-Buddy/CertificateMakerRust.git
+    style CLI stroke:#333,stroke-width:2px
+    style Menu stroke:#666,stroke-dasharray: 5 5
+    style Modules fill:#f9f9f9,stroke:#333,stroke-width:2px
+    style Dirs fill:#fff,stroke:#333
 ```
 
-```
-cd CertificateMaker
-```
+## System Requirements
 
-2. **Set up the project structure**:
-```
-mkdir -p excelcsvs Template assets certificates output
-```
+* **Rust Toolchain**: Latest stable version of [Rust and Cargo](https://rustup.rs/).
+* **Assets**: 
+    * Image templates (PNG/JPG format).
+    * Dataset (CSV files with a defined "Name" column).
+    * Typography (TTF/OTF font files).
 
-3. **Add your files**:
-   - Put PNG templates in `Template/`
-   - Put CSV files with names in `excelcsvs/`
-   - Put font files in `assets/`
+## Installation
 
-4. **Build and run**:
-```
-cargo run
-```
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/Not-Buddy/CertificateMakerRust.git
+   cd CertificateMaker
+   ```
 
-## 📁 Project Structure
+2. **Initialize Directory Structure**:
+   ```bash
+   mkdir -p excelcsvs Template assets certificates output
+   ```
 
-```
+3. **Populate Asset Directories**:
+   * Place image templates in `/Template`
+   * Place CSV data in `/excelcsvs`
+   * Place font files in `/assets`
+
+4. **Build and Execute**:
+   ```bash
+   cargo run
+   ```
+
+## Project Structure
+
+```text
 CertificateMaker/
 ├── src/
-│   ├── main.rs              # Main application with menu system
-│   ├── analysis.rs          # PNG file analysis functionality
-│   ├── editpng.rs          # Image editing and text overlay
-│   └── csvexcelparser.rs   # CSV parsing and certificate generation
-├── excelcsvs/              # CSV files with names
-│   └── Names.csv
-├── Template/               # PNG template files
-│   └── certificate.png
-├── assets/                 # Font files
-│   ├── Arial.ttf
-│   └── DejaVuSans.ttf
-├── certificates/           # Generated certificates (auto-created)
-├── output/                 # Single image outputs (auto-created)
-├── Cargo.toml
-└── README.md
-
+│   ├── main.rs            # Entry point and menu interface
+│   ├── analysis.rs        # Image metadata and coordinate calculations
+│   ├── editpng.rs         # Rendering engine and text overlay logic
+│   └── csvexcelparser.rs  # Data ingestion and batch processing logic
+├── excelcsvs/             # Source data (CSV)
+├── Template/              # Design templates (PNG/JPG)
+├── assets/                # Typography (TTF/OTF)
+├── certificates/          # Batch generation output
+└── output/                # Single-file test output
 ```
 
-## 🎯 Usage
+## Usage
 
-### Main Menu Options
+### Menu Navigation
+Upon execution, the application provides a numbered interface for the following operations:
+1. **Single Image Overlay**: Add text to a single template for testing or one-off documents.
+2. **Batch Generation**: Process a full CSV list to generate multiple certificates.
+3. **Technical Analysis**: Retrieve resolution and suggested coordinate data for a template.
+4. **Data Tools**: Create sample CSVs or debug existing file formatting issues.
 
-1. **Add text to single image** - Add custom text to any template
-2. **Generate certificates from CSV** - Batch create certificates
-3. **Analyze PNG file** - Get detailed image information
-4. **Create sample CSV** - Generate example CSV files
-5. **Debug CSV file** - Troubleshoot CSV formatting issues
-6. **Debug template file** - Analyze template properties
-7. **Debug font files** - Check available fonts
-8. **Show file organization tips** - Help with file structure
-
-### Creating Certificates
-
-1. **Prepare your CSV file** (`excelcsvs/Names.csv`):
-```
+### Dataset Configuration
+The CSV parser expects a "Name" header (case-insensitive). Example `Names.csv`:
+```csv
 Name
 Alice Johnson
 Bob Smith
 Charlie Brown
-Diana Prince
-Eva Martinez
 ```
 
-2. **Add templates** to `Template/` directory (PNG/JPG files)
+### Configuration Options
+* **Positioning**: Supports manual X/Y coordinate input or automatic horizontal centering.
+* **Color Syntax**: Accepts Hexadecimal codes (e.g., `#FF0000`) or standard color names (e.g., `white`, `blue`).
+* **Rendering**: Leverages `imageproc` and `rusttype` for high-quality text rasterization.
 
-3. **Add fonts** to `assets/` directory (TTF/OTF files)
+## Dependencies
 
-4. **Run the program**:
-```
-cargo run
-```
+The project utilizes the following core crates:
+* `image`: Image processing and encoding.
+* `imageproc`: Text drawing and geometric transformations.
+* `rusttype`: Font loading and glyph positioning.
+* `csv` & `serde`: Data serialization and parsing.
+* `rayon`: For parallelizing batch generation.
 
-5. **Select option 2** (Generate certificates)
+## Troubleshooting
 
-6. **Follow the interactive prompts**:
-   - Select CSV file from list
-   - Choose template from available options
-   - Pick font from assets directory
-   - Set position (or use center default)
-   - Choose font size and color
-   - Specify output directory
+| Issue | Resolution |
+| :--- | :--- |
+| **Directory Not Found** | Ensure the required folder structure exists in the project root. |
+| **CSV Parsing Failure** | Verify the "Name" header exists and the file is comma-delimited. |
+| **Font Errors** | Confirm the file extension is supported (TTF/OTF) and located in `/assets`. |
+| **Coordinate Clipping** | Use the "Analyze PNG" tool to verify image dimensions relative to your X/Y inputs. |
 
-## 🎨 Customization Options
+## License
 
-### Font Selection
-- Automatically scans `assets/` directory
-- Supports TTF, OTF, WOFF, WOFF2 formats
-- Interactive selection by number or name
-
-### Color Options
-- **Hex colors**: `#FF0000`, `#00FF00AA` (with alpha)
-- **Named colors**: white, black, red, green, blue, yellow, orange, purple
-
-### Positioning
-- **Manual coordinates**: Specify exact X,Y positions
-- **Auto-center**: Leave blank to center text
-- **Template analysis**: Get suggested coordinates
-
-## 📋 CSV File Format
-
-Your CSV files must have a "Name" column:
-
-```
-Name
-John Doe
-Jane Smith
-Alice Johnson
-```
-
-**Supported variations**:
-- Column names: `Name`, `name`, `NAME`
-- File location: `excelcsvs/` directory
-- Format: Standard CSV with headers
-
-## 🛠️ Dependencies
-
-```
-[dependencies]
-image = "0.24"
-png = "0.17"
-anyhow = "1.0"
-imageproc = "0.23"
-rusttype = "0.9"
-csv = "1.3"
-serde = { version = "1.0", features = ["derive"] }
-```
-
-## 🎯 Examples
-
-### Example Certificate Generation
-```
-🎓 === Certificate Generator (CSV Files Only) ===
-
-📄 Available CSV Files in 'excelcsvs' directory:
-  1. Names.csv
-  2. Students.csv
-
-Select CSV file: 1
-✅ Selected: Names.csv
-
-🖼️ Available Template Files in 'Template' directory:
-  1. certificate.png
-  2. diploma.png
-
-Select template file: 1
-✅ Selected template: certificate.png
-
-🔤 Available Font Files in 'assets' directory:
-  1. Arial.ttf
-  2. DejaVuSans.ttf
-
-Select font file: 2
-✅ Selected font: DejaVuSans.ttf
-```
-
-### Example Output
-```
-🎓 Generating 5 certificates...
-✅ Generated certificate 1/5: Alice Johnson
-✅ Generated certificate 2/5: Bob Smith
-✅ Generated certificate 3/5: Charlie Brown
-✅ Generated certificate 4/5: Diana Prince
-✅ Generated certificate 5/5: Eva Martinez
-
-🎉 Certificate generation complete!
-📁 Certificates saved in: certificates
-```
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**"Directory not found" errors**:
-- Ensure you've created the required directories: `excelcsvs/`, `Template/`, `assets/`
-- Use option 8 to see file organization tips
-
-**"No CSV files found"**:
-- Put CSV files in the `excelcsvs/` directory
-- Use option 4 to create a sample CSV file
-
-**"Failed to parse CSV"**:
-- Ensure your CSV has a "Name" column header
-- Use option 5 to debug CSV file issues
-
-**Font loading errors**:
-- Put font files (.ttf, .otf) in the `assets/` directory
-- Use option 7 to check available fonts
-
-### Debug Tools
-
-- **Option 5**: Debug CSV files - shows file content and parsing issues
-- **Option 6**: Debug templates - shows image properties and suggested coordinates  
-- **Option 7**: Debug fonts - lists available fonts with file sizes
-
-## 🎨 Template Guidelines
-
-- **Recommended formats**: PNG (preferred), JPG, JPEG
-- **Recommended size**: 1200x800 pixels or larger
-- **Design tips**: Leave space for text overlay (usually center or bottom third)
-- **File location**: `Template/` directory
-
-## 🤝 Contributing
-
-1. Fork the project
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-## 🚀 Getting Started Checklist
-
-- [ ] Install Rust
-- [ ] Create project directories (`excelcsvs/`, `Template/`, `assets/`)
-- [ ] Add a CSV file with names to `excelcsvs/`
-- [ ] Add PNG templates to `Template/`
-- [ ] Add font files to `assets/`
-- [ ] Run `cargo run` and select option 2
-- [ ] Generate your first batch of certificates! 🎉
-
-For questions or issues, please check the troubleshooting section or create an issue in the repository.
-
-
-```
-This README provides:
-
-1. **Clear project overview** with features
-2. **Step-by-step setup instructions**
-3. **Complete project structure**
-4. **Detailed usage examples**
-5. **Troubleshooting guide**
-6. **File format specifications**
-7. **Customization options**
-8. **Professional formatting with emojis**
-
-The README is comprehensive enough for new users to get started quickly while providing enough detail for advanced usage!
-```
+This project is licensed under the MIT License. See the `LICENSE` file for full details.
